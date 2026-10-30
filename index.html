@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#142d49">
+  <meta name="description" content="TMC 标签拍照识别，每个标签绑定 2–3 张照片，导出含照片的 Excel。">
+  <title>TMC Label Photo Register V1.2</title>
+  <link rel="manifest" href="manifest.webmanifest?v=1.2">
+  <link rel="icon" type="image/x-icon" href="favicon.ico?v=1.2">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=1.2">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.2">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=1.2">
+  <link rel="stylesheet" href="style.css?v=1.2">
+  <script defer src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script defer src="app.js?v=1.2"></script>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand"><span class="brand-icon"><img src="icon-192.png?v=1.2" alt="标签与相机图标"></span><span><b>TMC Label Photo Register</b><small>智能标签照片登记 · V1.2</small></span></div>
+    <span class="local-pill"><span class="dot"></span>仅储存在本机</span>
+  </header>
+
+  <section class="hero">
+    <div><span class="eyebrow">TMC WAREHOUSE · PHOTO RECORD</span><h1>一个标签，一组照片，<br><em>自动填写资料。</em></h1>
+    <p>拍摄标签照片自动读取 Label / Lot / Part / Net 等字段，再加入 1–2 张物料照片。每个标签固定为独立一组，导出 Excel 时资料与照片对应。</p></div>
+    <div class="hero-tools"><button id="btn-new" class="button button-primary" type="button">＋ 新增标签</button></div>
+  </section>
+
+  <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="side-heading"><div><h2>已保存的标签</h2><p><span id="record-count">0</span> 组资料</p></div><button id="btn-side-new" class="icon-button" title="新增标签" aria-label="新增标签">＋</button></div>
+      <input id="search-records" class="search-box" type="search" placeholder="搜索 Label / Lot / Part…" aria-label="搜索记录">
+      <div id="record-list" class="record-list"><div class="empty-side">暂无记录。先拍一张标签照片吧。</div></div>
+      <div class="side-export"><h3>批量导出</h3><button id="btn-excel" class="button button-primary full" type="button">↓ Excel（包含照片）</button><button id="btn-zip" class="button button-secondary full" type="button">↓ 照片 + 资料 ZIP 备份</button><button id="btn-import" class="button button-outline full" type="button">↑ 导入 ZIP 备份</button><input type="file" accept=".zip,application/zip" id="zip-import-input" hidden><p class="tiny">支持每组 2–3 张照片。建议定期备份；浏览器资料不会自动同步到其他设备。</p></div>
+    </aside>
+
+    <main class="workspace">
+      <div class="section-title"><div><span class="step">01</span><div><h2>拍摄 / 选择照片</h2><p>第 1 张是标签，另外 1–2 张是同一物料的照片。</p></div></div><span id="photo-count" class="count-badge">0 / 3 张</span></div>
+      <div class="photo-grid" id="photo-grid">
+        <article class="photo-card" data-slot="0"><div class="photo-preview" id="preview-0"><span class="photo-placeholder-icon">▦</span><b>标签照片</b><small>必需 · 用于自动识别</small></div><div class="photo-name" id="photo-name-0">尚未选择</div><div class="photo-actions"><button type="button" data-photo-action="camera" data-slot="0">拍照</button><button type="button" data-photo-action="pick" data-slot="0">上传</button><button type="button" data-photo-action="remove" data-slot="0" class="remove-photo" hidden>删除</button></div></article>
+        <article class="photo-card" data-slot="1"><div class="photo-preview" id="preview-1"><span class="photo-placeholder-icon">▧</span><b>物料照片</b><small>必需 · 与标签同一组</small></div><div class="photo-name" id="photo-name-1">尚未选择</div><div class="photo-actions"><button type="button" data-photo-action="camera" data-slot="1">拍照</button><button type="button" data-photo-action="pick" data-slot="1">上传</button><button type="button" data-photo-action="remove" data-slot="1" class="remove-photo" hidden>删除</button></div></article>
+        <article class="photo-card" data-slot="2"><div class="photo-preview" id="preview-2"><span class="photo-placeholder-icon">▧</span><b>其他角度照片</b><small>可选 · 最多 3 张</small></div><div class="photo-name" id="photo-name-2">尚未选择</div><div class="photo-actions"><button type="button" data-photo-action="camera" data-slot="2">拍照</button><button type="button" data-photo-action="pick" data-slot="2">上传</button><button type="button" data-photo-action="remove" data-slot="2" class="remove-photo" hidden>删除</button></div></article>
+      </div>
+      <div class="ocr-bar"><div><strong>标签识别（OCR）</strong><span id="ocr-status">上传第 1 张照片后自动识别；识别后请核对资料。</span></div><button type="button" id="btn-ocr" class="button button-outline small">↻ 重新识别</button></div>
+      <details class="ocr-details" id="ocr-details"><summary>查看识别原文（用于检查不清楚的字段）</summary><pre id="ocr-raw">暂无识别内容</pre></details>
+
+      <div class="section-title form-heading"><div><span class="step">02</span><div><h2>标签资料</h2><p>自动填写后仍可手动修正。重量、料号与批号会按原格式保存。</p></div></div><span class="form-hint">* 必填</span></div>
+      <form id="record-form" autocomplete="off">
+        <div class="form-grid">
+          <label class="field"><span>Label No. *</span><input name="labelNo" placeholder="例如 000001" required inputmode="numeric"></label>
+          <label class="field"><span>Lot No.</span><input name="lotNo" placeholder="例如 20260101"></label>
+          <label class="field span-2"><span>Description / 品名</span><textarea name="description" rows="2" placeholder="识别到的完整品名"></textarea></label>
+          <label class="field"><span>Spec / 规格</span><input name="spec" placeholder="例如 Mixed"></label>
+          <label class="field"><span>Part No. / 料号</span><input name="partNo" placeholder="例如 1234567890123"></label>
+          <label class="field"><span>Net Weight (KG)</span><input name="netKg" placeholder="例如 100.000" inputmode="decimal"></label>
+          <label class="field"><span>Container Weight (KG)</span><input name="containerKg" placeholder="例如 0.000" inputmode="decimal"></label>
+          <label class="field"><span>Gross Weight (KG)</span><input name="grossKg" placeholder="如标签空白可留空" inputmode="decimal"></label>
+          <label class="field"><span>Date / 储存日期</span><input name="date" placeholder="YYYY/MM/DD"></label>
+          <label class="field"><span>Weigher / 磅重者</span><input name="weigher" placeholder="例如 51A094"></label>
+          <label class="field"><span>Check / 物料确认</span><input name="checker" placeholder="例如 51A094"></label>
+          <label class="field"><span>Source / 来源</span><input name="source" placeholder="可留空"></label>
+          <label class="field"><span>Tax Code</span><input name="taxCode" placeholder="例如 05"></label>
+        </div>
+        <div class="sub-section"><h3>仓库实际位置 <span>手动填写（不会影响识别）</span></h3><div class="form-grid">
+          <label class="field"><span>Warehouse</span><input name="warehouse" placeholder="例如 T001"></label>
+          <label class="field"><span>Location</span><input name="location" placeholder="例如 51430"></label>
+          <label class="field"><span>Racking No.</span><input name="racking" placeholder="例如 R01"></label>
+          <label class="field"><span>Row No.</span><input name="row" placeholder="例如 01"></label>
+          <label class="field span-2"><span>Remarks</span><textarea name="remarks" rows="2" placeholder="其他备注…"></textarea></label>
+        </div></div>
+        <div class="form-footer"><span id="form-state">当前为新记录</span><div class="footer-actions"><button type="button" id="btn-clear" class="button button-secondary">清空 / 新增</button><button type="submit" id="btn-save" class="button button-primary">✓ 保存这一组（2–3 张）</button></div></div>
+      </form>
+      <footer class="footer-note">图片自动识别在本机浏览器执行，图片不会上传至服务器。OCR 及 Excel 导出所需程序首次使用时需联网加载。<br>识别可能受拍照角度、光线及标签字体影响，请在保存前检查关键字段。</footer>
+    </main>
+  </div>
+</div>
+<div class="toast" id="toast" aria-live="polite"></div>
+<div class="progress-overlay" id="progress-overlay" hidden><div class="progress-card"><div class="spinner"></div><h3 id="progress-title">处理中…</h3><p id="progress-detail">请勿关闭页面</p><div class="progress-track"><div id="progress-bar"></div></div></div></div>
+<input id="camera-input" type="file" accept="image/*" capture="environment" hidden>
+<input id="picker-input" type="file" accept="image/*" hidden>
+</body></html>

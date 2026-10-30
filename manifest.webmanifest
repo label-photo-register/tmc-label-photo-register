@@ -1,0 +1,31 @@
+{
+  "name": "TMC Label Photo Register",
+  "short_name": "TMC Label Photos",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f7fa",
+  "theme_color": "#142d49",
+  "description": "Capture and recognize labels, group 2–3 photos and export to Excel.",
+  "icons": [
+    {
+      "src": "icon-192.png?v=1.2",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png?v=1.2",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-maskable-512.png?v=1.2",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
