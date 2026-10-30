@@ -1,4 +1,4 @@
-/* TMC Label Photo Register V1.4 — local-first photo grouping + browser OCR */
+/* TMC Label Photo Register V1.5 — local-first photo grouping + browser OCR */
 (() => {
   'use strict';
   const $ = (id) => document.getElementById(id);
@@ -185,62 +185,80 @@
     if(!out.labelNo){const l=lines.slice(0,9).join(' ').match(/\b(0\d{5,8})\b/);if(l)out.labelNo=l[1];}
     return out;
   }
-  function parseDetailRegion(ocrData){
-    const raw=safeString(ocrData?.text||'');
-    // Most printed labels place Description and Spec directly one above the
-    // other. Separate rows by actual vertical position where OCR provides it.
-    const described=[];
-    const specified=[];
-    const lines=Array.isArray(ocrData?.lines)?ocrData.lines:[];
-    if(lines.length){
-      for(const line of lines){
-        const value=sanitizeDetail(line.text||'');
-        if(!value||value.length<3||/^(Description|Spec|Part No\.)\s*:?$/i.test(value))continue;
-        const top=Number(line.bbox?.y0);
-        const bottom=Number(line.bbox?.y1);
-        if(!Number.isFinite(top)||!Number.isFinite(bottom))continue;
-        // ROI begins at 27.4% of photo height; 35.0% is the row divider.
-        // Coordinates of OCR lines are relative to the cropped ROI image.
-        const center=(top+bottom)/2;
-        (center<.075/.175*ocrData._roiHeight?described:specified).push(value);
-      }
+  // IMPORTANT: never mix a neighbouring field caption, a Part No., or a
+  // line below the specification into the Description / Spec output.
+  // Use separate horizontal regions on the standard portrait warehouse label.
+  // Geometry is relative to the original photograph (works on phone photos).
+  function cleanDescriptionOCR(raw){
+    // A clipped printed caption is not part of the product description.
+    if(/^\s*(?:ption|descript|Spec)\b/i.test(safeString(raw)))return '';
+    let rows=safeString(raw).split(/\r?\n/).map(sanitizeDetail).filter(Boolean);
+    rows=rows.map(s=>s.replace(/^\s*(?:Descript(?:ion)?|ption|Spec)\s*[:;.®]?\s*/i,'')
+      .replace(/^n(?=S-)/i,'')
+      .replace(/\s+(?:S|I|l)\s*$/,'')
+      .replace(/\s+/g,' ').trim()).filter(Boolean);
+    let result=rows.join(' ').replace(/\s+/g,' ').trim();
+    // Reject partial English captions from OCR: 'ption® Ni wW/Au'.
+    if(/^(?:ption|description|spec)\b/i.test(result)||result.length<4||/^[-+\d\s]+$/.test(result))return '';
+    if(/\b(?:Part No|Gross|Container|Net Weight|Date|Check)\b/i.test(result))return '';
+    return result;
+  }
+  function cleanSpecOCR(raw){
+    // Do not accept a full-photo OCR string that includes the next Part No. row.
+    if(/\bPart\s*(?:No\.?)?\s*[|:]?\s*\d{7,18}/i.test(safeString(raw)))return '';
+    const rows=safeString(raw).split(/\r?\n/)
+      .map(s=>sanitizeDetail(s).replace(/^\s*(?:Spec|規格)\s*[:;.®]?\s*/i,'').trim())
+      .filter(s=>s&&s.length>=3&&!/^(?:Part(?:\s*No)?|Gross|Container|NET|Check|Date)\b/i.test(s));
+    if(!rows.length)return '';
+    let result=rows.join(' ').replace(/\s+/g,' ').replace(/\(\s*CAT\s*/gi,'(CAT ').replace(/\s+\)/g,')').trim();
+    // In a dedicated crop, this suffix sometimes reads 'without f M'.
+    // Only correct that highly specific artefact; never invent a missing word.
+    result=result.replace(/\bwithout\s+(?:f|[|lI])\s*M\s*$/i,'without PM');
+    result=result.replace(/\bPart\s*(?:No\.)?\s*[|:]?\s*\d{7,18}.*$/i,'').trim();
+    if(/^(?:Part|Gross|Container|NET|Description)\b/i.test(result)||!/[A-Za-z]{3}/.test(result))return '';
+    return result;
+  }
+  async function scanTextStrip(worker,image,box,{psm='6',label=''}={}){
+    const [x0,y0,x1,y1]=box;
+    const sx=Math.round(image.width*x0),sy=Math.round(image.height*y0);
+    const sw=Math.max(2,Math.round(image.width*(x1-x0)));
+    const sh=Math.max(2,Math.round(image.height*(y1-y0)));
+    const scale=Math.max(2,Math.min(3.2,1600/sw));
+    const canvas=document.createElement('canvas');
+    canvas.width=Math.round(sw*scale);canvas.height=Math.round(sh*scale);
+    const ctx=canvas.getContext('2d',{willReadFrequently:true});
+    ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.drawImage(image,sx,sy,sw,sh,0,0,canvas.width,canvas.height);
+    // Improve low-contrast greenish label photographs without binary clipping.
+    const pix=ctx.getImageData(0,0,canvas.width,canvas.height);
+    for(let i=0;i<pix.data.length;i+=4){
+      let v=.299*pix.data[i]+.587*pix.data[i+1]+.114*pix.data[i+2];
+      v=Math.max(0,Math.min(255,(v-125)*1.42+125));
+      pix.data[i]=pix.data[i+1]=pix.data[i+2]=v;
     }
-    if(described.length&&specified.length)return {description:described.join(' '),spec:specified.join(' ')};
-    // Fallback when the OCR library returns only plain text.
-    const rows=raw.split(/\r?\n/).map(sanitizeDetail).filter(v=>v.length>=3&& !/^(Description|Spec)\b/i.test(v));
-    if(rows.length<2)return {};
-    if(rows.length===2)return {description:rows[0],spec:rows[1]};
-    const mixed=rows.findIndex((x,i)=>i>0&&/^Mixed$/i.test(x));
-    if(mixed===rows.length-1)return {description:rows.slice(0,mixed).join(' '),spec:rows[mixed]};
-    return {description:rows[0],spec:rows.slice(1).join(' ')};
+    ctx.putImageData(pix,0,0);
+    const r=await worker.recognize(canvas,{}, {text:true});
+    return {text:r?.data?.text||'',confidence:r?.data?.confidence||0,label};
   }
   async function scanDetailRegion(worker,photoBlob){
     const image=await imageToBitmap(photoBlob);
     try{
-      // Dedicated scan avoids Chinese captions & QR patterns that confuse
-      // Tesseract when reading the label as one large image.
-      const x=.255,y=.274,width=.635,height=.175;
-      const sw=Math.max(1,Math.round(image.width*width));
-      const sh=Math.max(1,Math.round(image.height*height));
-      const scale=Math.max(1,Math.min(2.5,1200/sw));
-      const canvas=document.createElement('canvas');
-      canvas.width=Math.round(sw*scale);canvas.height=Math.round(sh*scale);
-      const ctx=canvas.getContext('2d',{willReadFrequently:true});
-      ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
-      ctx.drawImage(image,Math.round(image.width*x),Math.round(image.height*y),sw,sh,0,0,canvas.width,canvas.height);
-      const pixels=ctx.getImageData(0,0,canvas.width,canvas.height);
-      for(let i=0;i<pixels.data.length;i+=4){
-        const p=pixels.data;
-        const gray=.299*p[i]+.587*p[i+1]+.114*p[i+2];
-        const v=Math.max(0,Math.min(255,(gray-128)*1.48+128));
-        p[i]=v;p[i+1]=v;p[i+2]=v;
+      // The printed Description and Spec have different line boundaries.
+      // These two cropped calls prevent the Spec text from consuming Part No.
+      await worker.setParameters({tessedit_pageseg_mode:'6'});
+      const desc=await scanTextStrip(worker,image,[.285,.276,.825,.343],{label:'Description'});
+      const spec=await scanTextStrip(worker,image,[.280,.343,.825,.436],{label:'Spec'});
+      let description=cleanDescriptionOCR(desc.text), specification=cleanSpecOCR(spec.text);
+      // Portrait labels with 2-line descriptions can benefit from sparse text mode.
+      if(!description){
+        await worker.setParameters({tessedit_pageseg_mode:'11'});
+        const retry=await scanTextStrip(worker,image,[.275,.275,.840,.342],{label:'Description retry'});
+        await worker.setParameters({tessedit_pageseg_mode:'6'});
+        description=cleanDescriptionOCR(retry.text);
       }
-      ctx.putImageData(pixels,0,0);
-      const ocr=await worker.recognize(canvas,{}, {text:true,blocks:true});
-      const data=ocr?.data||{};
-      // Some builds of Tesseract expose .lines only via .blocks.
-      const lines=data.lines||data.blocks?.flatMap(block=>block.paragraphs?.flatMap(par=>par.lines||[])||[])||[];
-      return {parsed:parseDetailRegion({text:data.text||'',lines,_roiHeight:canvas.height}),raw:data.text||''};
+      const raw=`[Description crop]\n${desc.text}\n[Spec crop]\n${spec.text}`;
+      await worker.setParameters({tessedit_pageseg_mode:'3'});
+      return {parsed:{description,spec:specification},raw};
     }finally{if(image.close)image.close();}
   }
   async function decodeQR(blob){
@@ -265,12 +283,18 @@
       // Independent right-hand region scan is essential for bilingual TMC labels:
       // the main OCR often loses Description and wrapped Spec completely.
       let detailRaw='';
-      if(!parsed.description||!parsed.spec){
+      if(true){ // always inspect individual fields, even if whole-image OCR guessed them
         try{
           setProgress('加强品名与规格识别','正在单独读取标签右侧 Description / Spec…',78);
           const detail=await scanDetailRegion(worker,draft.photos[0].blob);
           detailRaw=detail.raw;
-          ['description','spec'].forEach(k=>{if(detail.parsed[k])parsed[k]=detail.parsed[k];});
+          ['description','spec'].forEach(k=>{
+            // Cropped result takes priority; retain only clean whole-image fallback.
+            const v=detail.parsed[k];
+            if(v){parsed[k]=v;return;}
+            const fallback=k==='spec'?cleanSpecOCR(parsed[k]):cleanDescriptionOCR(parsed[k]);
+            parsed[k]=fallback;
+          });
         }catch(err){console.warn('Optional label-detail OCR:',err);}
       }
       readForm();
@@ -352,7 +376,7 @@
       // Intentionally ONE worksheet: all photos and information stay in the same row.
       const sheet=wb.addWorksheet('Label Records',{views:[{state:'frozen',ySplit:3}]});
       const headers=[
-        'Photo 1 File','Photo 2 File','Photo 3 File',
+        'Photo 1','Photo 2','Photo 3',
         'Label No.','Lot No.','Description','Spec','Part No.',
         'Net (KG)','Container (KG)','Gross (KG)','Date','Weigher','Check',
         'Source','Tax Code','Warehouse','Location','Racking No.','Row No.',
@@ -380,7 +404,7 @@
         const wsRow=sheet.getRow(rowIndex);
         // Three blank photo cells (A:C), then Label No. begins at D.
         wsRow.values=[,'','','',...data];
-        wsRow.height=79; // small, consistently sized thumbnail rows (~105 px)
+        wsRow.height=72; // ~96px; compact photo rows and readable details
         wsRow.eachCell({includeEmpty:true},(c,col)=>{
           excelTheme(c);
           c.alignment={vertical:'middle',wrapText:true,horizontal:col<=3?'center':'left'};
@@ -401,8 +425,8 @@
       // Embed photos directly INTO A, B, C of the same row as each Label No.
       // Excel images are anchored to cells and preserve their aspect ratio.
       const colWidthPx=124; // ExcelJS width 17 is approximately 124px
-      const rowHeightPx=79*4/3; // Excel row height is expressed in points
-      const maxPhotoW=110,maxPhotoH=94;
+      const rowHeightPx=72*4/3; // Excel row height is expressed in points
+      const maxPhotoW=114,maxPhotoH=83; // small 4:3 placement frame, original picture ratio preserved
       for(let i=0;i<records.length;i++){
         const r=records[i],rowIndex=i+4;
         setProgress('正在把小照片插入 Excel',`Label ${safeString(r.fields.labelNo)} · 第 ${i+1}/${records.length} 组`,10+Math.round(78*i/records.length));
@@ -450,7 +474,7 @@
         setProgress('制作照片备份',`整理 Label ${rec.fields.labelNo} (${i+1}/${records.length})`,8+Math.round(35*(i+1)/records.length));
       }
       zip.file('records.json',JSON.stringify(manifest,null,2));
-      zip.file('label_records.csv','\uFEFF'+[['Label No.','Lot No.','Description','Spec','Part No.','Net (KG)','Container (KG)','Gross (KG)','Date','Weigher','Check','Source','Tax Code','Warehouse','Location','Racking No.','Row No.','Remarks','Photo Count','Photo 1 File','Photo 2 File','Photo 3 File','Last Saved'].join(','),...sheetRows().map(r=>r.map(escCsv).join(','))].join('\r\n'));
+      zip.file('label_records.csv','\uFEFF'+[['Label No.','Lot No.','Description','Spec','Part No.','Net (KG)','Container (KG)','Gross (KG)','Date','Weigher','Check','Source','Tax Code','Warehouse','Location','Racking No.','Row No.','Remarks','Photo Count','Photo 1','Photo 2','Photo 3','Last Saved'].join(','),...sheetRows().map(r=>r.map(escCsv).join(','))].join('\r\n'));
       const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:4}},meta=>setProgress('正在压缩照片',`已完成 ${Math.round(meta.percent)}%`,43+Math.round(meta.percent*.55)));
       download(blob,`TMC_Label_Backup_${timestamp()}.zip`);toast('ZIP 备份完成，包含所有照片和资料。');
     }catch(e){notice('ZIP 导出失败：'+e.message);}
@@ -495,7 +519,7 @@
     $('search-records').addEventListener('input',renderList);
     try{db=await dbOpen();await reload();}catch(err){notice('无法使用本机储存：'+err.message+'。请使用最新版 Chrome / Edge 并允许网站储存资料。');}
     if(location.protocol==='file:')notice('当前使用 file:// 方式打开；建议将整个文件夹部署到 GitHub Pages（HTTPS），以便 OCR、保存及 PWA 更稳定。');
-    if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('./sw.js?v=1.4').catch(()=>{});
+    if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('./sw.js?v=1.5').catch(()=>{});
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
 })();
