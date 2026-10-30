@@ -1,4 +1,4 @@
-const VERSION='tmc-label-photo-v1.2-selected-icon';
+const VERSION='tmc-label-photo-v1.3-inline-photo-excel';
 const SHELL=['./','./index.html','./style.css','./app.js','./manifest.webmanifest','./icon.svg','./icon-192.png','./icon-512.png','./icon-maskable-512.png','./apple-touch-icon.png','./favicon-32.png','./favicon.ico'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(VERSION).then(cache => cache.addAll(SHELL)).then(()=>self.skipWaiting()));

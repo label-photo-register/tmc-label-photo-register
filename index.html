@@ -5,28 +5,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#142d49">
   <meta name="description" content="TMC 标签拍照识别，每个标签绑定 2–3 张照片，导出含照片的 Excel。">
-  <title>TMC Label Photo Register V1.2</title>
-  <link rel="manifest" href="manifest.webmanifest?v=1.2">
-  <link rel="icon" type="image/x-icon" href="favicon.ico?v=1.2">
-  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=1.2">
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1.2">
-  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=1.2">
-  <link rel="stylesheet" href="style.css?v=1.2">
+  <title>TMC Label Photo Register V1.3</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="style.css">
   <script defer src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-  <script defer src="app.js?v=1.2"></script>
+  <script defer src="app.js"></script>
 </head>
 <body>
 <div class="app">
   <header class="topbar">
-    <div class="brand"><span class="brand-icon"><img src="icon-192.png?v=1.2" alt="标签与相机图标"></span><span><b>TMC Label Photo Register</b><small>智能标签照片登记 · V1.2</small></span></div>
+    <div class="brand"><span class="brand-icon"><img src="icon.svg" alt="TMC Label Photo Register 图标"></span><span><b>TMC Label Photo Register</b><small>智能标签照片登记 · V1.3</small></span></div>
     <span class="local-pill"><span class="dot"></span>仅储存在本机</span>
   </header>
 
   <section class="hero">
     <div><span class="eyebrow">TMC WAREHOUSE · PHOTO RECORD</span><h1>一个标签，一组照片，<br><em>自动填写资料。</em></h1>
-    <p>拍摄标签照片自动读取 Label / Lot / Part / Net 等字段，再加入 1–2 张物料照片。每个标签固定为独立一组，导出 Excel 时资料与照片对应。</p></div>
+    <p>拍摄标签照片自动读取 Label / Lot / Part / Net 等字段，再加入 1–2 张物料照片。每个标签固定为独立一组，导出 Excel 时 2–3 张小照片直接放在 Label No. 前面，整组资料都在同一行。</p></div>
     <div class="hero-tools"><button id="btn-new" class="button button-primary" type="button">＋ 新增标签</button></div>
   </section>
 
@@ -37,7 +35,7 @@
       <div class="side-heading"><div><h2>已保存的标签</h2><p><span id="record-count">0</span> 组资料</p></div><button id="btn-side-new" class="icon-button" title="新增标签" aria-label="新增标签">＋</button></div>
       <input id="search-records" class="search-box" type="search" placeholder="搜索 Label / Lot / Part…" aria-label="搜索记录">
       <div id="record-list" class="record-list"><div class="empty-side">暂无记录。先拍一张标签照片吧。</div></div>
-      <div class="side-export"><h3>批量导出</h3><button id="btn-excel" class="button button-primary full" type="button">↓ Excel（包含照片）</button><button id="btn-zip" class="button button-secondary full" type="button">↓ 照片 + 资料 ZIP 备份</button><button id="btn-import" class="button button-outline full" type="button">↑ 导入 ZIP 备份</button><input type="file" accept=".zip,application/zip" id="zip-import-input" hidden><p class="tiny">支持每组 2–3 张照片。建议定期备份；浏览器资料不会自动同步到其他设备。</p></div>
+      <div class="side-export"><h3>批量导出</h3><button id="btn-excel" class="button button-primary full" type="button">↓ Excel（照片与资料同一行）</button><button id="btn-zip" class="button button-secondary full" type="button">↓ 照片 + 资料 ZIP 备份</button><button id="btn-import" class="button button-outline full" type="button">↑ 导入 ZIP 备份</button><input type="file" accept=".zip,application/zip" id="zip-import-input" hidden><p class="tiny">支持每组 2–3 张照片。建议定期备份；浏览器资料不会自动同步到其他设备。</p></div>
     </aside>
 
     <main class="workspace">

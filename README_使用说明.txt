@@ -1,30 +1,31 @@
-Label Photo Register · V1.2（你选择的新图标）
-===========================================
+Label Photo Register · V1.3（Excel 同行嵌入小照片）
+================================================
 
-更新内容
-  - 已采用你确认的蓝绿渐变「QR 标签 + 2–3 张仓库照片 + 相机」图标。
-  - 图标中没有「TMC」字眼，也没有真实标签、真实标签编号或可识别公司资料。
-  - icon-192.png、icon-512.png、Apple Touch Icon、favicon.ico、manifest 都已更新。
-  - 兼容旧版本 icon.svg：用同一张新版图片覆盖旧 SVG，避免旧 TMC 字样残留。
-  - 网站版本更新 V1.2，并调整 Service Worker 缓存策略，方便 GitHub Pages 更新后显示新版图标。
-  - 完全保留原功能和设备本机资料。没有内含真实标签照片 sample-label.jpg。
+新功能：Excel 导出时只建立 1 张 Label Records 工作表。
+每一条 Label No. 对应 Excel 的 1 行，顺序如下：
+Photo 1 File | Photo 2 File | Photo 3 File | Label No. | Lot No. | Description | ...
 
-上传至 GitHub Pages
-  1. 下载本 ZIP 并解压。不要直接上传压缩包本身。
-  2. 打开你的 GitHub Repository，上传解压出来的全部文件至仓库根目录（不是里面再放一个子文件夹）。
-  3. 若 GitHub 提示同名文件更新，请将它们提交（Commit changes）。
-  4. GitHub Repository > Settings > Pages，Source=Deploy from a branch，Branch=main，Folder=/(root)。
-  5. 旧版如曾上传 sample-label.jpg：请在 GitHub 仓库中另外删除这个旧文件，上传新版不会自动删除旧文件。
-  6. 更新后打开网站并重新整理。手机旧安装图标未更新时，可以先移除旧主屏幕捷径再重新添加。
+  - A、B、C 三栏直接嵌入小照片（不是随机文件名，且不是超链接）。
+  - 第 1 张为标签照片，第 2 张为物料照片，第 3 张可选。
+  - 标签资料从 D 栏 Label No. 开始，同一个标签的数据和照片永远同行。
+  - 每行照片显示约 110 × 94 像素以内，保持长宽比，不会拉长变形。
+  - Excel 只含 Label Records，不再生成 Photo Gallery 工作表。
+  - 自动保留 Label、Lot、Part 等编号前面的 0，重量显示 3 位小数。
+  - 照片已经嵌入 xlsx；文件在 Excel 中离线打开也能看到。
+  - Excel 导出需要在线加载 ExcelJS 程序（浏览器首次访问）；拍照内容本机保存。
 
-操作
-  - 每组标签 2～3 张：第 1 张标签自动 OCR；第 2 张物料照片必需；第 3 张可选。
-  - OCR 结果请核对后保存。可导出包含 Label Records、Photo Gallery 的 Excel 文件。
-  - 还可以导出 ZIP 备份。记录和照片留在当前设备的浏览器 IndexedDB，本版不提供跨设备同步。
-  - 请定期备份重要资料；不要随便清理浏览器网站数据，以免删除当地照片。
+重要：V1.3 沿用 V1.2 同一 IndexedDB 本机资料库（tmc_label_photo_register_1）。
+只更新网站文件，不清除网站数据；旧版已保存的标签资料和照片可以照常导出。
+建议更新前先在旧版点击「照片 + 资料 ZIP 备份」，备份到手机／电脑。
 
-隐私
-  - 这个发布包只有程序和通用设计图片，不包含你的真实标签照片。
-  - 网站自身的录入、存储和识别过程都在当前浏览器进行。
-  - OCR、Excel/ZIP 导出仍使用在线加载的第三方 JavaScript 库；浏览器首次使用这些功能需要连接网络。
-  - 如果以前把真实标签上传到公开的 GitHub 仓库，请注意删除当前文件不等于清除既往 Git 历史记录。
+GitHub Pages 更新方法：
+  1. 把 ZIP 解压，上传里面全部文件到原 GitHub Repository 根目录。
+  2. Commit changes。等待 GitHub Pages 自动完成发布，再刷新网页。
+  3. 请不要把真实公司标签照片或含标签资料的备份 ZIP 上传公开仓库。
+  4. 如旧版曾上传 sample-label.jpg，须手动删除；已公开的 Git 历史也应处理。
+
+App 图标：保留你确认的蓝绿渐变无 TMC 字眼图标。
+  - icon-192、icon-512、maskable、favicon、Apple touch icon 均保持不变。
+
+隐私：公司标签照片只在当前设备的浏览器 IndexedDB 保存；
+本 GitHub ZIP 不包含真实标签照片、真实资料或用户记录。

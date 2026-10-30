@@ -1,4 +1,4 @@
-/* TMC Label Photo Register V1.2 — local-first photo grouping + browser OCR */
+/* TMC Label Photo Register V1.3 — local-first photo grouping + browser OCR */
 (() => {
   'use strict';
   const $ = (id) => document.getElementById(id);
@@ -200,68 +200,120 @@
   }
   function excelTheme(cell,isHeader=false){cell.alignment={vertical:'middle',wrapText:true};if(isHeader){cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF1D4266'}};cell.font={bold:true,color:{argb:'FFFFFFFF'},size:10};}else{cell.font={color:{argb:'FF1E3651'},size:10};}}
   function numOrEmpty(value){return value!=='' && value!==null && Number.isFinite(Number(value))?Number(value):safeString(value);}
-  function sheetRows(){return records.map(r=>{const f=r.fields;return [safeString(f.labelNo),safeString(f.lotNo),safeString(f.description),safeString(f.spec),safeString(f.partNo),numOrEmpty(f.netKg),numOrEmpty(f.containerKg),numOrEmpty(f.grossKg),safeString(f.date),safeString(f.weigher),safeString(f.checker),safeString(f.source),safeString(f.taxCode),safeString(f.warehouse),safeString(f.location),safeString(f.racking),safeString(f.row),safeString(f.remarks),r.photos.filter(Boolean).length,...r.photos.map(p=>p?p.name:''),safeString(r.updatedAt).replace('T',' ').slice(0,19)];});}
+  // One record per row. The first 3 columns are reserved for inline photos;
+  // the data fields begin in column D (Label No.).
+  function sheetRows(){return records.map(r=>{const f=r.fields;return [
+    safeString(f.labelNo),safeString(f.lotNo),safeString(f.description),safeString(f.spec),safeString(f.partNo),
+    numOrEmpty(f.netKg),numOrEmpty(f.containerKg),numOrEmpty(f.grossKg),safeString(f.date),
+    safeString(f.weigher),safeString(f.checker),safeString(f.source),safeString(f.taxCode),
+    safeString(f.warehouse),safeString(f.location),safeString(f.racking),safeString(f.row),
+    safeString(f.remarks),r.photos.filter(Boolean).length,
+    safeString(r.updatedAt).replace('T',' ').slice(0,19)
+  ];});}
   async function imageForExcel(blob){
+    // Use moderately compressed, high-enough resolution photos. Their displayed
+    // dimensions in Excel are small, but recipients can still enlarge them.
     const image=await imageToBitmap(blob);
     try{
-      const canvas=document.createElement('canvas');canvas.width=1120;canvas.height=1130;
-      const ctx=canvas.getContext('2d');ctx.fillStyle='#ffffff';ctx.fillRect(0,0,canvas.width,canvas.height);
-      const maxW=1070,maxH=1080;
-      const factor=Math.min(maxW/image.width,maxH/image.height);
-      const w=Math.max(1,Math.round(image.width*factor)),h=Math.max(1,Math.round(image.height*factor));
-      ctx.drawImage(image,(canvas.width-w)/2,(canvas.height-h)/2,w,h);
-      return canvas.toDataURL('image/jpeg',0.82);
+      const maxEdge=1000;
+      const factor=Math.min(1,maxEdge/Math.max(image.width,image.height));
+      const w=Math.max(1,Math.round(image.width*factor));
+      const h=Math.max(1,Math.round(image.height*factor));
+      const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
+      const ctx=canvas.getContext('2d',{alpha:false});
+      ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);ctx.drawImage(image,0,0,w,h);
+      return {base64:canvas.toDataURL('image/jpeg',0.80),width:w,height:h};
     }finally{if(image.close)image.close();}
   }
   function download(blob,fileName){const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=fileName;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),20000);}
   const timestamp=()=>new Date().toISOString().slice(0,10);
 
   async function exportExcel(){
-    if(busy)return;if(!records.length){toast('没有已保存的标签可导出。');return;}
+    if(busy)return;
+    if(!records.length){toast('没有已保存的标签可导出。');return;}
     if(!window.ExcelJS){notice('Excel 程序未加载。请连接互联网后刷新网页重试。');return;}
     try{
-      setBusy(true);setProgress('制作 Excel 文件','正在建立标签资料表…',3);
-      const wb=new window.ExcelJS.Workbook();wb.creator='TMC Label Photo Register';wb.created=new Date();
+      setBusy(true);setProgress('制作 Excel 文件','正在建立照片与标签同一行的表格…',3);
+      const wb=new window.ExcelJS.Workbook();
+      wb.creator='Label Photo Register';wb.created=new Date();
+      // Intentionally ONE worksheet: all photos and information stay in the same row.
       const sheet=wb.addWorksheet('Label Records',{views:[{state:'frozen',ySplit:3}]});
-      const gallery=wb.addWorksheet('Photo Gallery',{views:[{state:'frozen',ySplit:2}]});
-      const headers=['Label No.','Lot No.','Description','Spec','Part No.','Net (KG)','Container (KG)','Gross (KG)','Date','Weigher','Check','Source','Tax Code','Warehouse','Location','Racking No.','Row No.','Remarks','Photo Count','Photo 1 File','Photo 2 File','Photo 3 File','Last Saved'];
-      const widths=[16,17,41,20,23,15,16,15,17,15,15,21,12,16,16,15,13,28,14,28,28,28,23];
+      const headers=[
+        'Photo 1 File','Photo 2 File','Photo 3 File',
+        'Label No.','Lot No.','Description','Spec','Part No.',
+        'Net (KG)','Container (KG)','Gross (KG)','Date','Weigher','Check',
+        'Source','Tax Code','Warehouse','Location','Racking No.','Row No.',
+        'Remarks','Photo Count','Last Saved'
+      ];
+      const widths=[17,17,17,16,17,41,20,23,15,16,15,17,15,15,21,12,16,16,15,13,28,14,23];
       sheet.columns=headers.map((_,i)=>({key:`c${i}`,width:widths[i]}));
-      sheet.mergeCells(1,1,1,headers.length);const title=sheet.getCell('A1');title.value='TMC  |  LABEL PHOTO REGISTER';title.font={bold:true,color:{argb:'FFFFFFFF'},size:17};title.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF142D49'}};title.alignment={vertical:'middle'};sheet.getRow(1).height=37;
-      sheet.mergeCells(2,1,2,headers.length);sheet.getCell('A2').value=`Total Labels: ${records.length}   •   One label = 2–3 photos   •   Exported: ${new Date().toLocaleString('en-MY')}`;sheet.getCell('A2').font={size:10,color:{argb:'FF58718B'}};sheet.getRow(2).height=23;
-      sheet.getRow(3).values=[, ...headers];sheet.getRow(3).height=30;sheet.getRow(3).eachCell(c=>excelTheme(c,true));
+      sheet.mergeCells(1,1,1,headers.length);
+      const title=sheet.getCell('A1');title.value='LABEL PHOTO REGISTER  |  PHOTOS + DETAILS';
+      title.font={bold:true,color:{argb:'FFFFFFFF'},size:17};
+      title.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF142D49'}};
+      title.alignment={vertical:'middle',horizontal:'left',indent:1};
+      sheet.getRow(1).height=37;
+      sheet.mergeCells(2,1,2,headers.length);
+      const subtitle=sheet.getCell('A2');
+      subtitle.value=`Total Labels: ${records.length}   •   Photos 1–3 appear before Label No.   •   Exported: ${new Date().toLocaleString('en-MY')}`;
+      subtitle.font={size:10,color:{argb:'FF58718B'}};subtitle.alignment={vertical:'middle',indent:1};
+      sheet.getRow(2).height=23;
+      const head=sheet.getRow(3);head.values=[,...headers];head.height=31;
+      head.eachCell(c=>excelTheme(c,true));
+      sheet.getRow(3).alignment={vertical:'middle',horizontal:'center',wrapText:true};
       const rows=sheetRows();
-      rows.forEach((row,i)=>{const n=i+4;const wsRow=sheet.getRow(n);wsRow.values=[,...row];wsRow.height=29;wsRow.eachCell((c,col)=>{excelTheme(c);if(i%2===1)c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF3F7FB'}};if(col===1||col===5)c.numFmt='@';if([6,7,8].includes(col)&&typeof c.value==='number')c.numFmt='0.000';});
-        const label=sheet.getCell(n,1);label.font={bold:true,color:{argb:'FF135FAD'},underline:true,size:10};label.value={text:row[0],hyperlink:`#'Photo Gallery'!A${4+i*23}`,tooltip:'点击查看此标签的照片'};
+      rows.forEach((data,i)=>{
+        const rowIndex=i+4;
+        const wsRow=sheet.getRow(rowIndex);
+        // Three blank photo cells (A:C), then Label No. begins at D.
+        wsRow.values=[,'','','',...data];
+        wsRow.height=79; // small, consistently sized thumbnail rows (~105 px)
+        wsRow.eachCell({includeEmpty:true},(c,col)=>{
+          excelTheme(c);
+          c.alignment={vertical:'middle',wrapText:true,horizontal:col<=3?'center':'left'};
+          if(i%2===1)c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF3F7FB'}};
+          if(col<=3)c.border={top:{style:'hair',color:{argb:'FFD6E3F0'}},bottom:{style:'hair',color:{argb:'FFD6E3F0'}},left:{style:'hair',color:{argb:'FFD6E3F0'}},right:{style:'hair',color:{argb:'FFD6E3F0'}}};
+          if([4,5,8,16].includes(col))c.numFmt='@'; // keep leading-zero IDs as text
+          if([9,10,11].includes(col)&&typeof c.value==='number')c.numFmt='0.000';
+        });
+        const label=wsRow.getCell(4);
+        label.font={bold:true,color:{argb:'FF135FAD'},size:11};
+        if(!records[i].photos[2]){
+          wsRow.getCell(3).value='—';
+          wsRow.getCell(3).font={size:10,color:{argb:'FF9AAABC'}};
+        }
       });
       sheet.autoFilter={from:{row:3,column:1},to:{row:3,column:headers.length}};
-      sheet.pageSetup={orientation:'landscape',fitToPage:true,fitToWidth:1};
-      gallery.columns=[{width:48},{width:48},{width:48}];gallery.mergeCells('A1:C1');gallery.getCell('A1').value='TMC  |  PHOTO GALLERY';gallery.getCell('A1').font={bold:true,color:{argb:'FFFFFFFF'},size:17};gallery.getCell('A1').fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF142D49'}};gallery.getRow(1).height=36;
-      gallery.mergeCells('A2:C2');gallery.getCell('A2').value='Each label has 2–3 linked photos: 1. Label  /  2. Material  /  3. Additional view (optional).';gallery.getCell('A2').font={size:11,color:{argb:'FF58718B'}};gallery.getRow(2).height=28;
+      sheet.pageSetup={orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0};
+      // Embed photos directly INTO A, B, C of the same row as each Label No.
+      // Excel images are anchored to cells and preserve their aspect ratio.
+      const colWidthPx=124; // ExcelJS width 17 is approximately 124px
+      const rowHeightPx=79*4/3; // Excel row height is expressed in points
+      const maxPhotoW=110,maxPhotoH=94;
       for(let i=0;i<records.length;i++){
-        const r=records[i],start=4+i*23,f=r.fields;
-        setProgress('正在将照片嵌入 Excel',`Label ${f.labelNo} · 第 ${i+1}/${records.length} 组`,10+Math.round(78*(i/records.length)));
-        gallery.mergeCells(`A${start}:C${start}`);const group=gallery.getCell(`A${start}`);
-        group.value=`LABEL  ${safeString(f.labelNo)}    |    LOT  ${safeString(f.lotNo)}    |    PART  ${safeString(f.partNo)}    |    NET  ${safeString(f.netKg)} KG`;
-        group.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF1D4266'}};group.font={bold:true,color:{argb:'FFFFFFFF'},size:12};group.alignment={vertical:'middle'};gallery.getRow(start).height=28;
+        const r=records[i],rowIndex=i+4;
+        setProgress('正在把小照片插入 Excel',`Label ${safeString(r.fields.labelNo)} · 第 ${i+1}/${records.length} 组`,10+Math.round(78*i/records.length));
         for(let j=0;j<3;j++){
-          const title=gallery.getRow(start+1).getCell(j+1);title.value=['PHOTO 1  •  LABEL','PHOTO 2  •  MATERIAL','PHOTO 3  •  EXTRA (OPTIONAL)'][j];title.font={bold:true,color:{argb:'FF2A5E95'},size:11};title.alignment={vertical:'middle'};title.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFE9F3FD'}};
-          const p=r.photos[j];
-          if(!p){gallery.getRow(start+3).getCell(j+1).value='No additional photo';continue;}
-          const base64=await imageForExcel(p.blob);
-          const imageId=wb.addImage({base64,extension:'jpeg'});
-          gallery.addImage(imageId,{tl:{col:j,row:start+2},ext:{width:327,height:360}});
-          const cap=gallery.getRow(start+21).getCell(j+1);cap.value=safeString(p.name);cap.font={color:{argb:'FF60748A'},size:9};
+          const p=r.photos[j];if(!p||!p.blob)continue;
+          const img=await imageForExcel(p.blob);
+          const fit=Math.min(maxPhotoW/img.width,maxPhotoH/img.height);
+          const width=Math.max(1,Math.round(img.width*fit));
+          const height=Math.max(1,Math.round(img.height*fit));
+          const x=(colWidthPx-width)/2/colWidthPx;
+          const y=(rowHeightPx-height)/2/rowHeightPx;
+          const imageId=wb.addImage({base64:img.base64,extension:'jpeg'});
+          // tl uses zero-based columns and rows; ext is a pixel-based thumbnail.
+          sheet.addImage(imageId,{
+            tl:{col:j+x,row:rowIndex-1+y},
+            ext:{width,height},
+            editAs:'oneCell'
+          });
         }
-        gallery.getRow(start+1).height=26;
-        for(let k=start+2;k<=start+20;k++)gallery.getRow(k).height=16;
-        gallery.getRow(start+21).height=23;
-        gallery.getRow(start+22).height=16;
       }
-      setProgress('正在生成 Excel 文件','封装图片与表格，请保持页面开启…',92);
+      setProgress('正在生成 Excel 文件','正在封装单张工作表及所有嵌入照片…',92);
       const buffer=await wb.xlsx.writeBuffer();
-      download(new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),`TMC_Label_Photos_${timestamp()}.xlsx`);
-      toast(`Excel 导出完成：${records.length} 组，每组照片已嵌入文件。`);
+      download(new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),`Label_Photos_Inline_${timestamp()}.xlsx`);
+      toast(`Excel 导出完成：${records.length} 组，照片与资料全部在同一张工作表。`);
     }catch(e){notice('Excel 导出失败：'+e.message);}
     finally{hideProgress();setBusy(false);}
   }
