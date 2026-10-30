@@ -1,9 +1,9 @@
-/* TMC Label Photo Register V1.5 — local-first photo grouping + browser OCR */
+/* TMC Label Photo Register V1.8 — local-first photo grouping + browser OCR */
 (() => {
   'use strict';
   const $ = (id) => document.getElementById(id);
   const form = $('record-form');
-  const FIELD_KEYS = ['labelNo','lotNo','description','spec','partNo','netKg','containerKg','grossKg','date','weigher','checker','source','taxCode','warehouse','location','racking','row','remarks'];
+  const FIELD_KEYS = ['labelNo','lotNo','description','spec','partNo','netKg']; // Retain legacy data in IndexedDB/ZIP backups, but do not display/export unused fields.
   const DB_NAME = 'tmc_label_photo_register_1';
   const STORE = 'labels';
   let db;
@@ -15,6 +15,25 @@
   const urlCache = new WeakMap();
   let toastTimer;
 
+  const TRANSLATIONS = {"zh":{"brandSub":"智能标签照片登记 · V1.8","localOnly":"仅储存在本机","language":"语言","eyebrow":"仓库 · 标签照片记录","heroMain":"一个标签，一组照片，","heroEm":"自动填写资料。","heroDesc":"拍摄标签照片自动读取 Label / Lot / Part / Net 等字段，再加入 1–2 张物料照片。每个标签固定为独立一组，导出 Excel 时 2–3 张小照片直接放在 Label No. 前面，整组资料都在同一行。","newLabel":"＋ 新增标签","savedLabels":"已保存的标签","groupsUnit":"组资料","searchPlaceholder":"搜索 Label / Lot / Part…","searchAria":"搜索记录","noRecords":"暂无记录。先拍一张标签照片吧。","exportHeading":"批量导出","excelButton":"↓ Excel（照片与资料同一行）","zipButton":"↓ 照片 + 资料 ZIP 备份","importButton":"↑ 导入 ZIP 备份","backupHelp":"支持每组 2–3 张照片。建议定期备份；浏览器资料不会自动同步到其他设备。","captureHeading":"拍摄 / 选择照片","captureDesc":"第 1 张是标签，另外 1–2 张是同一物料的照片。","photoLabel":"标签照片","photoMaterial":"物料照片","photoOptional":"其他角度照片","photoLabelHelp":"必需 · 用于自动识别","photoMaterialHelp":"必需 · 与标签同一组","photoOptionalHelp":"可选 · 最多 3 张","notSelected":"尚未选择","camera":"拍照","upload":"上传","remove":"删除","ocrHeading":"标签识别（OCR）","ocrIntro":"上传第 1 张照片后自动识别，并按标签印刷位置分别读取品名与规格。","ocrAgain":"↻ 重新识别","ocrRawSummary":"查看识别原文（用于检查不清楚的字段）","ocrNoText":"暂无识别内容","detailsHeading":"标签资料","detailsDesc":"自动填写后仍可手动修正。重量、料号与批号会按原格式保存。","required":"* 必填","fieldDescription":"Description / 品名","fieldSpec":"Spec / 规格","fieldPart":"Part No. / 料号","fieldNet":"Net Weight (KG)","phLabel":"例如 000001","phLot":"例如 50077-2606-02","phDesc":"识别到的完整品名","phSpec":"例如 Mixed","phPart":"例如 1234567890123","phNet":"例如 100.000","formNew":"当前为新记录","clearButton":"清空 / 新增","saveButton":"✓ 保存这一组（2–3 张）","footerPrivacy":"图片自动识别在本机浏览器执行，图片不会上传至服务器。OCR 及 Excel 导出所需程序首次使用时需联网加载。","footerCaution":"识别可能受拍照角度、光线及标签字体影响，请在保存前检查关键字段。","progressProcessing":"处理中…","progressWait":"请勿关闭页面","pageDescription":"标签拍照识别，每个标签绑定 2–3 张照片，导出含照片的 Excel。","photoUnit":"张","photoShortUnit":"张照片","photoAltLabel":"标签","photoAltMaterial":"物料","photoAltOther":"其他角度","photoFallback":"照片 {n}","searchNone":"没有找到符合的标签。","previewAlt":"标签缩略图","unnamedLabel":"未命名标签","photosCount":"{n} 张照片","ocrSaved":"已保存上次识别结果，可重新识别。","ocrUploadInitial":"上传第 1 张照片后自动识别；识别后请核对资料。","formEditing":"编辑已保存的记录","errNoIndexedDB":"此浏览器不支持本机数据库 IndexedDB","errDbUnavailable":"数据库不可用，请在 HTTPS/GitHub Pages 上打开应用","errReadPhoto":"无法读取照片文件","errCompressPhoto":"无法压缩照片","busyPhoto":"正在处理照片，请完成当前操作。","chooseImage":"请选择照片图片文件。","imageTooBig":"图片超过 35MB，请先压缩。","loadingPhoto":"正在读取照片","photoNumberFile":"第 {n} 张：{file}","addedPhoto":"第 {n} 张照片已加入当前标签组","photoFail":"读取照片失败：{error}","needLabelPhoto":"请先拍摄标签照片（第 1 张）。","ocrInitializing":"识别标签中","ocrDownload":"第一次使用需要下载 OCR 语言识别文件；照片只在本机处理。","ocrLibraryMissing":"OCR 程序尚未载入，请确认设备有联网并刷新网页。","ocrRecognizing":"正在识别标签","ocrPercent":"文字识别 {pct}%","ocrReadFields":"读取标签的号码、日期、重量…","ocrDetailTitle":"加强品名与规格识别","ocrDetailDesc":"正在按印刷行位置分别读取 Description 和 Spec…","ocrNone":"未识别到文字","ocrStatusDone":"已识别 {n} 个字段{confidence}。请核对 Lot / Description / Spec / Part / Net。","confidence":" · 文本置信度 {pct}%","ocrMissing":"仍未可靠读取：{fields}。请看标签照片核对并手动填写，不会猜测缺失内容。","ocrFew":"本张标签识别较少：请确保照片清楚、光线充足并正对标签，或在下方手动修改资料。","ocrFinished":"自动识别完成：找到 {n} 项字段，请核对准确性。","ocrFailure":"OCR 识别未完成：{error}。可手动输入标签资料，照片仍能保存。","ocrFailureStatus":"识别失败，可手动填写或重试。","needLabelNo":"请填写 Label No.","needTwoPhotos":"每个标签必须包含：标签照片（1）和物料照片（2）；第 3 张可选。","needTwoNotice":"保存前须至少放入标签照片 + 物料照片，共 2 张；最多 3 张。","confirmDuplicate":"Label {label} 已保存过 {n} 组。确定仍要新增另一组照片吗？","savedState":"已保存 · 可继续修改","savedToast":"Label {label} 已保存（{n} 张照片）。","saveFail":"保存失败：{error}。可尝试减少照片大小、检查浏览器储存空间。","confirmDelete":"确定要删除 Label {label} 的整组记录和所有照片吗？删除后无法撤销。","deletedToast":"已删除这组标签和照片。","noExcelRecords":"没有已保存的标签可导出。","excelMissing":"Excel 程序未加载。请连接互联网后刷新网页重试。","excelTitle":"制作 Excel 文件","excelBuilding":"正在建立照片与标签同一行的表格…","excelPhotoTitle":"正在把小照片插入 Excel","excelPhotoDetail":"Label {label} · 第 {i}/{total} 组","excelWrapping":"正在生成 Excel 文件","excelWrappingDesc":"正在封装单张工作表及所有嵌入照片…","excelDone":"Excel 导出完成：{n} 组，照片与资料全部在同一张工作表。","excelFail":"Excel 导出失败：{error}","noBackupRecords":"没有已保存的标签可备份。","zipMissing":"ZIP 程序未加载。请连接互联网后刷新重试。","zipTitle":"制作照片备份","zipDescription":"包含应用保存的高清照片及完整记录","zipProgress":"整理 Label {label} ({i}/{total})","zipCompress":"正在压缩照片","zipPercent":"已完成 {pct}%","zipDone":"ZIP 备份完成，包含所有照片和资料。","zipFail":"ZIP 导出失败：{error}","importTitle":"读取备份","importChecking":"正在检查 ZIP 内容","errNoManifest":"ZIP 内没有 records.json，这不是 TMC 应用备份。","errBadBackup":"备份格式不正确","importConfirm":"备份包含 {n} 组标签。导入后同编号 ID 的记录会更新，其他记录保留。是否继续？","errInvalidPhotoPath":"备份照片路径不正确","errMissingPhoto":"备份照片缺失：{path}","importRestoring":"恢复标签记录","importDone":"备份导入完成：{n} 组标签。","importFail":"导入备份失败：{error}","deleteButton":"删除本组","ocrAfterRemove":"上传标签照片后自动识别。","errLocalStorage":"无法使用本机储存：{error}。请使用最新版 Chrome / Edge 并允许网站储存资料。","warningFile":"当前使用 file:// 方式打开；建议将整个文件夹部署到 GitHub Pages（HTTPS），以便 OCR、保存及 PWA 更稳定。","languageChanged":"语言已切换。"},"en":{"brandSub":"Smart Label Photo Register · V1.8","localOnly":"Saved on this device only","language":"Language","eyebrow":"WAREHOUSE · LABEL PHOTO RECORD","heroMain":"One label, one photo group,","heroEm":"details filled automatically.","heroDesc":"Photograph the label to read Label / Lot / Part / Net automatically, then add 1–2 photos of the same material. Each label is saved as its own group. In Excel, 2–3 small photos appear before Label No., all on one row.","newLabel":"＋ New label","savedLabels":"Saved labels","groupsUnit":"groups","searchPlaceholder":"Search Label / Lot / Part…","searchAria":"Search records","noRecords":"No records yet. Start by photographing a label.","exportHeading":"Export & backup","excelButton":"↓ Excel (photos and details in one row)","zipButton":"↓ ZIP backup (photos + data)","importButton":"↑ Import ZIP backup","backupHelp":"2–3 photos per group. Back up regularly; browser data is not automatically synced to other devices.","captureHeading":"Take / choose photos","captureDesc":"Photo 1 is the label; photos 2–3 show the same material.","photoLabel":"Label photo","photoMaterial":"Material photo","photoOptional":"Another angle","photoLabelHelp":"Required · for automatic OCR","photoMaterialHelp":"Required · same label group","photoOptionalHelp":"Optional · maximum 3 photos","notSelected":"Not selected","camera":"Camera","upload":"Upload","remove":"Remove","ocrHeading":"Label recognition (OCR)","ocrIntro":"Photo 1 is recognized automatically. Description and Spec are read from their respective areas on the label.","ocrAgain":"↻ Recognize again","ocrRawSummary":"Show raw OCR text (to review unclear fields)","ocrNoText":"No OCR text yet","detailsHeading":"Label details","detailsDesc":"Automatically filled details can still be edited. Weight, part number and lot number keep their original formatting.","required":"* Required","fieldDescription":"Description","fieldSpec":"Spec","fieldPart":"Part No.","fieldNet":"Net Weight (KG)","phLabel":"e.g. 000001","phLot":"e.g. 50077-2606-02","phDesc":"Full description from OCR","phSpec":"e.g. Mixed","phPart":"e.g. 1234567890123","phNet":"e.g. 100.000","formNew":"New record","clearButton":"Clear / new","saveButton":"✓ Save group (2–3 photos)","footerPrivacy":"Image recognition runs in your browser. Photos are not uploaded to our server. An internet connection is required to load OCR and Excel libraries for first use.","footerCaution":"OCR accuracy depends on camera angle, lighting and label print. Check important fields before saving.","progressProcessing":"Processing…","progressWait":"Do not close this page","pageDescription":"Recognize labels, save 2–3 photos per label, and export them together to Excel.","photoUnit":"photos","photoShortUnit":"photos","photoAltLabel":"Label","photoAltMaterial":"Material","photoAltOther":"Another angle","photoFallback":"Photo {n}","searchNone":"No matching labels found.","previewAlt":"Label thumbnail","unnamedLabel":"Unnamed label","photosCount":"{n} photos","ocrSaved":"Previous OCR result is saved; you can recognize again.","ocrUploadInitial":"Upload Photo 1 to start OCR; check the details afterward.","formEditing":"Editing saved record","errNoIndexedDB":"This browser does not support IndexedDB local storage","errDbUnavailable":"Database unavailable. Open the app on HTTPS/GitHub Pages","errReadPhoto":"Cannot read image file","errCompressPhoto":"Cannot compress image","busyPhoto":"A photo is being processed. Finish the current task first.","chooseImage":"Please select an image file.","imageTooBig":"Image exceeds 35 MB. Compress it first.","loadingPhoto":"Reading photo","photoNumberFile":"Photo {n}: {file}","addedPhoto":"Photo {n} added to the current label group","photoFail":"Could not read photo: {error}","needLabelPhoto":"Photograph the label first (Photo 1).","ocrInitializing":"Recognizing label","ocrDownload":"OCR language files download on first use. Photos are processed locally.","ocrLibraryMissing":"OCR library not loaded. Check internet access and refresh.","ocrRecognizing":"Recognizing label","ocrPercent":"Text recognition {pct}%","ocrReadFields":"Reading label number, date and weight…","ocrDetailTitle":"Improving Description & Spec","ocrDetailDesc":"Reading Description and Spec from separate printed lines…","ocrNone":"No text recognized","ocrStatusDone":"{n} fields recognized{confidence}. Check Lot / Description / Spec / Part / Net.","confidence":" · text confidence {pct}%","ocrMissing":"Could not reliably read: {fields}. Check the photo and enter these fields manually; missing values will not be guessed.","ocrFew":"Only a few fields were recognized. Use a clear, well-lit, straight-on photo or edit the details manually.","ocrFinished":"OCR complete: {n} fields found. Please verify their accuracy.","ocrFailure":"OCR could not finish: {error}. You can enter details manually and still save the photos.","ocrFailureStatus":"OCR failed. Enter details manually or retry.","needLabelNo":"Please enter Label No.","needTwoPhotos":"Each label requires a label photo (1) and a material photo (2); Photo 3 is optional.","needTwoNotice":"Add both a label photo and a material photo before saving (2–3 photos total).","confirmDuplicate":"Label {label} already has {n} saved group(s). Create another group anyway?","savedState":"Saved · you may edit again","savedToast":"Label {label} saved ({n} photos).","saveFail":"Save failed: {error}. Try smaller photos or check browser storage.","confirmDelete":"Delete Label {label} and all its photos? This cannot be undone.","deletedToast":"Label group and photos deleted.","noExcelRecords":"No saved labels to export.","excelMissing":"Excel library not loaded. Connect to the internet and refresh.","excelTitle":"Creating Excel file","excelBuilding":"Preparing photos and details in the same row…","excelPhotoTitle":"Inserting small photos into Excel","excelPhotoDetail":"Label {label} · group {i}/{total}","excelWrapping":"Generating Excel file","excelWrappingDesc":"Finishing the single worksheet and embedded photos…","excelDone":"Excel exported: {n} groups, photos and details on one worksheet.","excelFail":"Excel export failed: {error}","noBackupRecords":"No saved labels to back up.","zipMissing":"ZIP library not loaded. Connect to the internet and refresh.","zipTitle":"Creating photo backup","zipDescription":"Including full-resolution saved photos and complete records","zipProgress":"Preparing Label {label} ({i}/{total})","zipCompress":"Compressing photos","zipPercent":"Completed {pct}%","zipDone":"ZIP backup complete with all photos and data.","zipFail":"ZIP export failed: {error}","importTitle":"Reading backup","importChecking":"Checking ZIP contents","errNoManifest":"No records.json in ZIP. This is not an app backup.","errBadBackup":"Invalid backup format","importConfirm":"This backup contains {n} label groups. Records with the same ID will be updated; all others remain. Continue?","errInvalidPhotoPath":"Invalid backup photo path","errMissingPhoto":"Backup photo missing: {path}","importRestoring":"Restoring label records","importDone":"Backup imported: {n} label groups.","importFail":"Backup import failed: {error}","deleteButton":"Delete group","ocrAfterRemove":"Upload a label photo for automatic recognition.","errLocalStorage":"Local storage unavailable: {error}. Use the latest Chrome / Edge and allow site storage.","warningFile":"You opened a file:// URL. Deploy the folder on GitHub Pages (HTTPS) for more reliable OCR, storage and PWA.","languageChanged":"Language changed."},"ms":{"brandSub":"Pendaftaran Foto Label Pintar · V1.8","localOnly":"Disimpan pada peranti ini sahaja","language":"Bahasa","eyebrow":"GUDANG · REKOD FOTO LABEL","heroMain":"Satu label, satu kumpulan foto,","heroEm":"maklumat diisi secara automatik.","heroDesc":"Ambil gambar label untuk membaca Label / Lot / Part / Net secara automatik, kemudian tambah 1–2 foto bahan yang sama. Setiap label disimpan dalam kumpulan berasingan. Dalam Excel, 2–3 foto kecil diletakkan sebelum Label No., semuanya dalam satu baris.","newLabel":"＋ Label baharu","savedLabels":"Label yang disimpan","groupsUnit":"kumpulan","searchPlaceholder":"Cari Label / Lot / Part…","searchAria":"Cari rekod","noRecords":"Belum ada rekod. Mulakan dengan mengambil foto label.","exportHeading":"Eksport & sandaran","excelButton":"↓ Excel (foto dan maklumat sebaris)","zipButton":"↓ Sandaran ZIP (foto + data)","importButton":"↑ Import sandaran ZIP","backupHelp":"2–3 foto setiap kumpulan. Buat sandaran secara berkala; data pelayar tidak disegerakkan ke peranti lain secara automatik.","captureHeading":"Ambil / pilih foto","captureDesc":"Foto pertama ialah label; 1–2 foto lagi menunjukkan bahan yang sama.","photoLabel":"Foto label","photoMaterial":"Foto bahan","photoOptional":"Sudut lain","photoLabelHelp":"Wajib · untuk pengecaman automatik","photoMaterialHelp":"Wajib · kumpulan label yang sama","photoOptionalHelp":"Pilihan · maksimum 3 foto","notSelected":"Belum dipilih","camera":"Kamera","upload":"Muat naik","remove":"Buang","ocrHeading":"Pengecaman label (OCR)","ocrIntro":"Foto pertama dikenal pasti secara automatik. Description dan Spec dibaca mengikut bahagian masing-masing pada label.","ocrAgain":"↻ Kenal pasti semula","ocrRawSummary":"Lihat teks OCR asal (untuk semak medan tidak jelas)","ocrNoText":"Belum ada teks OCR","detailsHeading":"Maklumat label","detailsDesc":"Maklumat yang diisi secara automatik masih boleh diedit. Berat, nombor bahagian dan nombor lot dikekalkan dalam format asal.","required":"* Wajib","fieldDescription":"Keterangan","fieldSpec":"Spesifikasi","fieldPart":"No. Bahagian","fieldNet":"Berat Bersih (KG)","phLabel":"cth. 000001","phLot":"cth. 50077-2606-02","phDesc":"Keterangan penuh daripada OCR","phSpec":"cth. Mixed","phPart":"cth. 1234567890123","phNet":"cth. 100.000","formNew":"Rekod baharu","clearButton":"Kosongkan / baharu","saveButton":"✓ Simpan kumpulan (2–3 foto)","footerPrivacy":"Pengecaman imej dijalankan dalam pelayar pada peranti anda. Foto tidak dimuat naik ke pelayan kami. Sambungan internet diperlukan untuk memuatkan modul OCR dan Excel pada penggunaan pertama.","footerCaution":"Ketepatan OCR bergantung pada sudut kamera, pencahayaan dan cetakan label. Semak medan penting sebelum menyimpan.","progressProcessing":"Sedang diproses…","progressWait":"Jangan tutup halaman ini","pageDescription":"Kenal pasti label, simpan 2–3 foto bagi setiap label dan eksport bersama ke Excel.","photoUnit":"foto","photoShortUnit":"foto","photoAltLabel":"Label","photoAltMaterial":"Bahan","photoAltOther":"Sudut lain","photoFallback":"Foto {n}","searchNone":"Tiada label yang sepadan.","previewAlt":"Lakaran kecil label","unnamedLabel":"Label tanpa nama","photosCount":"{n} foto","ocrSaved":"Hasil OCR terdahulu disimpan; anda boleh mengenal pasti semula.","ocrUploadInitial":"Muat naik Foto 1 untuk memulakan OCR; semak maklumat selepas itu.","formEditing":"Mengedit rekod yang disimpan","errNoIndexedDB":"Pelayar ini tidak menyokong storan setempat IndexedDB","errDbUnavailable":"Pangkalan data tidak tersedia. Buka aplikasi melalui HTTPS/GitHub Pages","errReadPhoto":"Tidak dapat membaca fail imej","errCompressPhoto":"Tidak dapat memampatkan imej","busyPhoto":"Foto sedang diproses. Selesaikan operasi semasa dahulu.","chooseImage":"Sila pilih fail imej.","imageTooBig":"Imej melebihi 35 MB. Mampatkan dahulu.","loadingPhoto":"Membaca foto","photoNumberFile":"Foto {n}: {file}","addedPhoto":"Foto {n} ditambah ke kumpulan label semasa","photoFail":"Gagal membaca foto: {error}","needLabelPhoto":"Ambil foto label terlebih dahulu (Foto 1).","ocrInitializing":"Mengenal pasti label","ocrDownload":"Fail bahasa OCR dimuat turun semasa penggunaan pertama. Foto diproses pada peranti.","ocrLibraryMissing":"Modul OCR belum dimuatkan. Semak internet dan muat semula.","ocrRecognizing":"Mengenal pasti label","ocrPercent":"Pengecaman teks {pct}%","ocrReadFields":"Membaca nombor label, tarikh dan berat…","ocrDetailTitle":"Memperbaik Keterangan & Spesifikasi","ocrDetailDesc":"Membaca Keterangan dan Spesifikasi daripada baris cetakan berasingan…","ocrNone":"Tiada teks dikenal pasti","ocrStatusDone":"{n} medan dikenal pasti{confidence}. Semak Lot / Description / Spec / Part / Net.","confidence":" · keyakinan teks {pct}%","ocrMissing":"Tidak dapat membaca dengan yakin: {fields}. Semak foto dan isi secara manual; nilai yang tiada tidak akan diteka.","ocrFew":"Hanya beberapa medan dikenal pasti. Gunakan foto yang jelas, terang dan lurus atau edit secara manual.","ocrFinished":"OCR selesai: {n} medan ditemui. Sila semak ketepatannya.","ocrFailure":"OCR tidak berjaya: {error}. Anda masih boleh mengisi maklumat secara manual dan menyimpan foto.","ocrFailureStatus":"OCR gagal. Isi secara manual atau cuba lagi.","needLabelNo":"Sila masukkan Label No.","needTwoPhotos":"Setiap label memerlukan foto label (1) dan foto bahan (2); Foto 3 adalah pilihan.","needTwoNotice":"Tambah foto label dan foto bahan sebelum menyimpan (jumlah 2–3 foto).","confirmDuplicate":"Label {label} sudah mempunyai {n} kumpulan tersimpan. Tetap cipta kumpulan baharu?","savedState":"Disimpan · boleh diedit lagi","savedToast":"Label {label} disimpan ({n} foto).","saveFail":"Gagal menyimpan: {error}. Cuba foto lebih kecil atau semak ruang storan pelayar.","confirmDelete":"Padam Label {label} bersama semua fotonya? Tindakan ini tidak boleh dibatalkan.","deletedToast":"Kumpulan label dan foto telah dipadam.","noExcelRecords":"Tiada label tersimpan untuk dieksport.","excelMissing":"Modul Excel belum dimuatkan. Sambung ke internet dan muat semula.","excelTitle":"Menjana fail Excel","excelBuilding":"Menyusun foto dan maklumat dalam baris yang sama…","excelPhotoTitle":"Memasukkan foto kecil ke dalam Excel","excelPhotoDetail":"Label {label} · kumpulan {i}/{total}","excelWrapping":"Menjana fail Excel","excelWrappingDesc":"Menyiapkan satu lembaran kerja dan foto terbenam…","excelDone":"Excel berjaya dieksport: {n} kumpulan, foto dan maklumat dalam satu lembaran kerja.","excelFail":"Eksport Excel gagal: {error}","noBackupRecords":"Tiada label tersimpan untuk disandarkan.","zipMissing":"Modul ZIP belum dimuatkan. Sambung ke internet dan muat semula.","zipTitle":"Menyediakan sandaran foto","zipDescription":"Merangkumi foto resolusi tinggi dan rekod lengkap yang disimpan","zipProgress":"Menyediakan Label {label} ({i}/{total})","zipCompress":"Memampatkan foto","zipPercent":"Selesai {pct}%","zipDone":"Sandaran ZIP selesai dengan semua foto dan maklumat.","zipFail":"Eksport ZIP gagal: {error}","importTitle":"Membaca sandaran","importChecking":"Menyemak kandungan ZIP","errNoManifest":"Tiada records.json dalam ZIP. Ini bukan sandaran aplikasi.","errBadBackup":"Format sandaran tidak sah","importConfirm":"Sandaran ini mengandungi {n} kumpulan label. Rekod dengan ID sama akan dikemas kini; rekod lain dikekalkan. Teruskan?","errInvalidPhotoPath":"Laluan foto sandaran tidak sah","errMissingPhoto":"Foto sandaran tiada: {path}","importRestoring":"Memulihkan rekod label","importDone":"Sandaran diimport: {n} kumpulan label.","importFail":"Import sandaran gagal: {error}","deleteButton":"Padam kumpulan","ocrAfterRemove":"Muat naik foto label untuk pengecaman automatik.","errLocalStorage":"Storan setempat tidak tersedia: {error}. Gunakan Chrome / Edge terkini dan benarkan storan laman.","warningFile":"Anda membuka URL file://. Terbitkan folder melalui GitHub Pages (HTTPS) untuk OCR, storan dan PWA yang lebih stabil.","languageChanged":"Bahasa telah ditukar."}};
+  const LANG_KEY = 'label_photo_register_language';
+  let lang = (()=>{try{return localStorage.getItem(LANG_KEY)||'zh';}catch(_){return 'zh';}})();
+  if(!Object.prototype.hasOwnProperty.call(TRANSLATIONS, lang))lang='zh';
+  function t(key,params={}) {let s=TRANSLATIONS[lang][key]||TRANSLATIONS.zh[key]||key;return s.replace(/\{(\w+)\}/g,(_,name)=>params[name]===undefined?'':String(params[name]));}
+  function applyLanguage(){
+    document.documentElement.lang=lang==='zh'?'zh-Hans':lang;
+    document.title=(lang==='zh'?'标签照片登记':lang==='ms'?'Pendaftaran Foto Label':'Label Photo Register')+' V1.8';
+    document.querySelectorAll('[data-i18n]').forEach(el=>{el.textContent=t(el.dataset.i18n);});
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(el=>{el.placeholder=t(el.dataset.i18nPlaceholder);});
+    document.querySelectorAll('[data-i18n-title]').forEach(el=>{el.title=t(el.dataset.i18nTitle);});
+    document.querySelectorAll('[data-i18n-aria-label]').forEach(el=>{el.setAttribute('aria-label',t(el.dataset.i18nAriaLabel));});
+    document.querySelectorAll('[data-i18n-content]').forEach(el=>{el.setAttribute('content',t(el.dataset.i18nContent));});
+    $('language-select').value=lang;
+  }
+  function setLanguage(next){if(!TRANSLATIONS[next])return;if(busy){$('language-select').value=lang;return;}readForm();lang=next;
+    try{localStorage.setItem(LANG_KEY,lang);}catch(_){}
+    applyLanguage();loadToForm();renderList();notice('');toast(t('languageChanged'));
+  }
   function freshRecord() {
     const fields = {};
     FIELD_KEYS.forEach(k => { fields[k] = ''; });
@@ -29,14 +48,14 @@
   function photoUrl(blob) {if(!blob)return ''; let url=urlCache.get(blob);if(!url){url=URL.createObjectURL(blob);urlCache.set(blob,url);}return url;}
 
   function dbOpen(){return new Promise((resolve,reject)=>{
-    if(!('indexedDB' in window))return reject(new Error('此浏览器不支持本机数据库 IndexedDB'));
+    if(!('indexedDB' in window))return reject(new Error(t('errNoIndexedDB')));
     const request=indexedDB.open(DB_NAME,1);
     request.onupgradeneeded=()=>{if(!request.result.objectStoreNames.contains(STORE))request.result.createObjectStore(STORE,{keyPath:'id'});};
     request.onsuccess=()=>resolve(request.result);
     request.onerror=()=>reject(request.error);
   });}
   function dbRequest(mode,fn){return new Promise((resolve,reject)=>{
-    if(!db)return reject(new Error('数据库不可用，请在 HTTPS/GitHub Pages 上打开应用'));
+    if(!db)return reject(new Error(t('errDbUnavailable')));
     const trx=db.transaction(STORE,mode);const store=trx.objectStore(STORE);
     const req=fn(store);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);
     trx.onerror=()=>reject(trx.error);
@@ -46,37 +65,37 @@
   const removeRecord=id=>dbRequest('readwrite',store=>store.delete(id));
   async function reload(){records=(await getAll()).sort((a,b)=>safeString(b.updatedAt).localeCompare(safeString(a.updatedAt)));renderList();}
 
-  function loadToForm(){FIELD_KEYS.forEach(k=>{form.elements.namedItem(k).value=safeString(draft.fields[k]);});$('ocr-raw').textContent=draft.ocrRaw||'暂无识别内容';$('ocr-status').textContent=draft.ocrRaw?'已保存上次识别结果，可重新识别。':'上传第 1 张照片后自动识别；识别后请核对资料。';renderPhotos();$('form-state').textContent=records.some(x=>x.id===draft.id)?'编辑已保存的记录':'当前为新记录';$('btn-delete').hidden=!records.some(x=>x.id===draft.id);}
+  function loadToForm(){FIELD_KEYS.forEach(k=>{form.elements.namedItem(k).value=safeString(draft.fields[k]);});$('ocr-raw').textContent=draft.ocrRaw||t('ocrNoText');$('ocr-status').textContent=draft.ocrRaw?t('ocrSaved'):t('ocrUploadInitial');renderPhotos();$('form-state').textContent=records.some(x=>x.id===draft.id)?t('formEditing'):t('formNew');$('btn-delete').hidden=!records.some(x=>x.id===draft.id);}
   function renderPhotos(){
     draft.photos.forEach((p,i)=>{
       const prev=$(`preview-${i}`); const name=$(`photo-name-${i}`); prev.replaceChildren();
-      if(p&&p.blob){const img=document.createElement('img');img.src=photoUrl(p.blob);img.alt=['标签','物料','其他角度'][i];prev.append(img);name.textContent=p.name||`照片 ${i+1}`;}
-      else {const icon=document.createElement('span');icon.className='photo-placeholder-icon';icon.textContent=i?'▧':'▦';const strong=document.createElement('b');strong.textContent=['标签照片','物料照片','其他角度照片'][i];const note=document.createElement('small');note.textContent=i===2?'可选 · 最多 3 张':'必需 · '+(i===0?'用于自动识别':'与标签同一组');prev.append(icon,strong,note);name.textContent='尚未选择';}
+      if(p&&p.blob){const img=document.createElement('img');img.src=photoUrl(p.blob);img.alt=[t('photoAltLabel'),t('photoAltMaterial'),t('photoAltOther')][i];prev.append(img);name.textContent=p.name||t('photoFallback',{n:i+1});}
+      else {const icon=document.createElement('span');icon.className='photo-placeholder-icon';icon.textContent=i?'▧':'▦';const strong=document.createElement('b');strong.textContent=[t('photoLabel'),t('photoMaterial'),t('photoOptional')][i];const note=document.createElement('small');note.textContent=i===2?t('photoOptionalHelp'):(i===0?t('photoLabelHelp'):t('photoMaterialHelp'));prev.append(icon,strong,note);name.textContent=t('notSelected');}
       document.querySelector(`[data-photo-action="remove"][data-slot="${i}"]`).hidden=!p;
     });
     const n=draft.photos.filter(Boolean).length;
-    $('photo-count').textContent=`${n} / 3 张`;
+    $('photo-count').textContent=`${n} / 3 ${t('photoUnit')}`;
   }
   function renderList(){
     $('record-count').textContent=records.length;
     const search=$('search-records').value.trim().toLowerCase();
     const list=$('record-list');list.replaceChildren();
     const matched=records.filter(r=>['labelNo','lotNo','partNo','description'].some(k=>safeString(r.fields[k]).toLowerCase().includes(search)));
-    if(!matched.length){const el=document.createElement('div');el.className='empty-side';el.textContent=search?'没有找到符合的标签。':'暂无记录。先拍一张标签照片吧。';list.append(el);}
+    if(!matched.length){const el=document.createElement('div');el.className='empty-side';el.textContent=search?t('searchNone'):t('noRecords');list.append(el);}
     matched.forEach(r=>{
       const item=document.createElement('button');item.type='button';item.className='record-item'+(r.id===draft.id?' active':'');item.addEventListener('click',()=>{readForm();draft={...r,fields:{...r.fields},photos:[...r.photos]};loadToForm();renderList();window.scrollTo({top:0,behavior:'smooth'});});
-      const thumb=document.createElement('img');thumb.alt='标签缩略图';if(r.photos[0]&&r.photos[0].blob)thumb.src=photoUrl(r.photos[0].blob);
+      const thumb=document.createElement('img');thumb.alt=t('previewAlt');if(r.photos[0]&&r.photos[0].blob)thumb.src=photoUrl(r.photos[0].blob);
       const meta=document.createElement('span');meta.className='record-meta';
-      const strong=document.createElement('strong');strong.textContent=r.fields.labelNo||'未命名标签';
+      const strong=document.createElement('strong');strong.textContent=r.fields.labelNo||t('unnamedLabel');
       const lot=document.createElement('small');lot.textContent=`Lot: ${r.fields.lotNo||'—'} · Net: ${r.fields.netKg||'—'} KG`;
-      const count=document.createElement('small');count.className='count';count.textContent=`${r.photos.filter(Boolean).length} 张照片`;
+      const count=document.createElement('small');count.className='count';count.textContent=t('photosCount',{n:r.photos.filter(Boolean).length});
       meta.append(strong,lot,count);item.append(thumb,meta);list.append(item);
     });
   }
   function readForm(){FIELD_KEYS.forEach(k=>{draft.fields[k]=form.elements.namedItem(k).value.trim();});}
   function newDraft(){draft=freshRecord();loadToForm();renderList();notice('');}
 
-  async function imageToBitmap(blob){try{return await createImageBitmap(blob,{imageOrientation:'from-image'});}catch(_){return await new Promise((resolve,reject)=>{const i=new Image();const u=URL.createObjectURL(blob);i.onload=()=>{URL.revokeObjectURL(u);resolve(i);};i.onerror=()=>{URL.revokeObjectURL(u);reject(new Error('无法读取照片文件'));};i.src=u;});}}
+  async function imageToBitmap(blob){try{return await createImageBitmap(blob,{imageOrientation:'from-image'});}catch(_){return await new Promise((resolve,reject)=>{const i=new Image();const u=URL.createObjectURL(blob);i.onload=()=>{URL.revokeObjectURL(u);resolve(i);};i.onerror=()=>{URL.revokeObjectURL(u);reject(new Error(t('errReadPhoto')));};i.src=u;});}}
   async function resizePhoto(file,slot){
     const source=await imageToBitmap(file);
     try{
@@ -86,22 +105,22 @@
       const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
       const ctx=canvas.getContext('2d',{alpha:false});ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);ctx.drawImage(source,0,0,w,h);
       const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',slot===0?.91:.85));
-      if(!blob)throw new Error('无法压缩照片');
+      if(!blob)throw new Error(t('errCompressPhoto'));
       return {name:(file.name||`photo-${slot+1}`).replace(/\.[^.]+$/,'')+'.jpg',blob,originalName:file.name||'',takenAt:new Date().toISOString()};
     }finally{if(source.close)source.close();}
   }
 
   async function setPhoto(slot,file){
-    if(busy){toast('正在处理照片，请完成当前操作。');return;}
-    if(!file || !file.type.startsWith('image/')){toast('请选择照片图片文件。');return;}
-    if(file.size>35*1024*1024){toast('图片超过 35MB，请先压缩。');return;}
+    if(busy){toast(t('busyPhoto'));return;}
+    if(!file || !file.type.startsWith('image/')){toast(t('chooseImage'));return;}
+    if(file.size>35*1024*1024){toast(t('imageTooBig'));return;}
     readForm();
     try{
-      setBusy(true);setProgress('正在读取照片',`第 ${slot+1} 张：${file.name}`,15);
+      setBusy(true);setProgress(t('loadingPhoto'),t('photoNumberFile',{n:slot+1,file:file.name}),15);
       const normalized=await resizePhoto(file,slot);draft.photos[slot]=normalized;renderPhotos();setBusy(false);hideProgress();
-      toast(`第 ${slot+1} 张照片已加入当前标签组`);
+      toast(t('addedPhoto',{n:slot+1}));
       if(slot===0)await recognizeLabel(false);
-    }catch(error){setBusy(false);hideProgress();notice(`读取照片失败：${error.message}`);}
+    }catch(error){setBusy(false);hideProgress();notice(t('photoFail',{error:error.message}));}
   }
   function getRegex(text,reList){for(const re of reList){const match=text.match(re);if(match&&match[1])return match[1].trim();}return '';}
   function cleanLot(str){
@@ -185,81 +204,108 @@
     if(!out.labelNo){const l=lines.slice(0,9).join(' ').match(/\b(0\d{5,8})\b/);if(l)out.labelNo=l[1];}
     return out;
   }
-  // IMPORTANT: never mix a neighbouring field caption, a Part No., or a
-  // line below the specification into the Description / Spec output.
-  // Use separate horizontal regions on the standard portrait warehouse label.
-  // Geometry is relative to the original photograph (works on phone photos).
-  function cleanDescriptionOCR(raw){
-    // A clipped printed caption is not part of the product description.
-    if(/^\s*(?:ption|descript|Spec)\b/i.test(safeString(raw)))return '';
-    let rows=safeString(raw).split(/\r?\n/).map(sanitizeDetail).filter(Boolean);
-    rows=rows.map(s=>s.replace(/^\s*(?:Descript(?:ion)?|ption|Spec)\s*[:;.®]?\s*/i,'')
-      .replace(/^n(?=S-)/i,'')
-      .replace(/\s+(?:S|I|l)\s*$/,'')
-      .replace(/\s+/g,' ').trim()).filter(Boolean);
-    let result=rows.join(' ').replace(/\s+/g,' ').trim();
-    // Reject partial English captions from OCR: 'ption® Ni wW/Au'.
-    if(/^(?:ption|description|spec)\b/i.test(result)||result.length<4||/^[-+\d\s]+$/.test(result))return '';
-    if(/\b(?:Part No|Gross|Container|Net Weight|Date|Check)\b/i.test(result))return '';
-    return result;
+  // V1.6: Use detected text geometry rather than photo-wide, fixed percentages.
+  // The printed headings and the handwritten/typed values are not baseline-aligned:
+  // Description values are *above* the caption; Spec can wrap onto a second row.
+  function wordsFromTSV(tsv){
+    return safeString(tsv).split(/\r?\n/).slice(1).map(line=>{
+      const v=line.split('\t');
+      if(v.length<12||v[0]!=='5')return null;
+      return {text:v.slice(11).join('\t').trim(),x:Number(v[6]),y:Number(v[7]),w:Number(v[8]),h:Number(v[9]),conf:Number(v[10])};
+    }).filter(v=>v&&v.text&&[v.x,v.y,v.w,v.h].every(Number.isFinite));
   }
-  function cleanSpecOCR(raw){
-    // Do not accept a full-photo OCR string that includes the next Part No. row.
-    if(/\bPart\s*(?:No\.?)?\s*[|:]?\s*\d{7,18}/i.test(safeString(raw)))return '';
-    const rows=safeString(raw).split(/\r?\n/)
-      .map(s=>sanitizeDetail(s).replace(/^\s*(?:Spec|規格)\s*[:;.®]?\s*/i,'').trim())
-      .filter(s=>s&&s.length>=3&&!/^(?:Part(?:\s*No)?|Gross|Container|NET|Check|Date)\b/i.test(s));
+  function labelGeometry(tsv,w,h){
+    const words=wordsFromTSV(tsv);
+    const low=s=>s.toLowerCase().replace(/[^a-z]/g,'');
+    const desc=words.find(t=>t.x<.36*w&&t.y>.19*h&&t.y<.47*h&&/^desc(?:rip|rn|n|r|ri|)[a-z]*tion$|^description$/.test(low(t.text)))
+      ||words.find(t=>t.x<.36*w&&t.y>.20*h&&t.y<.47*h&&low(t.text).startsWith('desc'));
+    const part=words.find(t=>t.x>.21*w&&t.x<.49*w&&t.y>.35*h&&t.y<.65*h&&/^part$/.test(low(t.text)));
+    const spec=words.find(t=>t.x<.30*w&&t.y>.30*h&&t.y<.57*h&&/^spec$/.test(low(t.text)));
+    const dy=desc?.y??h*.290;
+    let py=part?.y??h*.455;
+    // Ignore anchors clearly out of order (misread caption elsewhere on the page).
+    if(py-dy<h*.10||py-dy>h*.27)py=dy+h*.165;
+    const gap=py-dy;
+    let specY=spec?.y??(dy+gap*.48);
+    if(specY<dy+gap*.34||specY>dy+gap*.70)specY=dy+gap*.48;
+    // Use Part No. left edge as the most stable value-column boundary.
+    // This prevents OCR from ingesting the printed English captions.
+    const textX=Math.max(w*.23,Math.min(w*.32,part?part.x-4:(desc?desc.x+desc.w+1:w*.266)));
+    return {descY:dy,specY,partY:py,gap,x0:textX,x1:Math.min(w*.88,textX+w*.61),located:!!(desc&&part)};
+  }
+  function cleanLine(s){
+    return safeString(s).replace(/[\u2018\u2019\u201c\u201d]/g,'').replace(/\s+/g,' ').trim()
+      .replace(/^(?:Description|Descnption|ption|Spec|Part\s*No\.?)\s*[:;.®]?\s*/i,'')
+      .replace(/\s*[|_:]+\s*$/g,'').replace(/^[^A-Za-z0-9(]+/g,'').trim();
+  }
+  function cleanDetail(raw,kind){
+    if(/^\s*(?:ption|Descnption|FINN\s+Ne)\b/i.test(safeString(raw)))return '';
+    const rows=safeString(raw).split(/\r?\n/).map(cleanLine).filter(Boolean)
+      .filter(s=>!(/^(?:Description|Descnption|Spec|Part\s*(?:No)?|Gross|Container|Net|Date|Weigher|Check|Source)\b/i.test(s)))
+      .filter(s=>/[a-z]{2}/i.test(s)||/\bMixed\b/i.test(s));
     if(!rows.length)return '';
-    let result=rows.join(' ').replace(/\s+/g,' ').replace(/\(\s*CAT\s*/gi,'(CAT ').replace(/\s+\)/g,')').trim();
-    // In a dedicated crop, this suffix sometimes reads 'without f M'.
-    // Only correct that highly specific artefact; never invent a missing word.
-    result=result.replace(/\bwithout\s+(?:f|[|lI])\s*M\s*$/i,'without PM');
-    result=result.replace(/\bPart\s*(?:No\.)?\s*[|:]?\s*\d{7,18}.*$/i,'').trim();
-    if(/^(?:Part|Gross|Container|NET|Description)\b/i.test(result)||!/[A-Za-z]{3}/.test(result))return '';
-    return result;
+    let value=rows.reduce((s,v)=>s?(s.endsWith('-')?s+v:s+' '+v):v,'').trim();
+    value=value.replace(/\s*\(CAT\s*/gi,' (CAT ').replace(/\s+\)/g,')')
+      .replace(/(\bw\/Au)\s+(?:A\s*[iIl1]|[S|_])\s*$/i,'$1')
+      .replace(/\s+(?:[|_]+|A\s+[il1])\s*$/i,'').trim();
+    // A stray trailing glyph often accompanies the final slash-form metal name.
+    value=value.replace(/(\bw\/Au)\s+(?:A\s*[iIl1]|[|_]+)$/i,'$1');
+    if(kind==='spec'&&/\bPart\s*(?:No\.)?\s*\d{7,}/i.test(value))return '';
+    if(/\b(?:Part\s*No|Gross|Container|NET\s*Weight)\b/i.test(value))return '';
+    if(value.length<3||/^(?:Mixed\W*)?\d{8,}$/.test(value))return '';
+    return value;
   }
-  async function scanTextStrip(worker,image,box,{psm='6',label=''}={}){
+  async function scanTextStrip(worker,image,box,{psm='7',contrast=1.55}={}){
     const [x0,y0,x1,y1]=box;
-    const sx=Math.round(image.width*x0),sy=Math.round(image.height*y0);
-    const sw=Math.max(2,Math.round(image.width*(x1-x0)));
-    const sh=Math.max(2,Math.round(image.height*(y1-y0)));
+    const sx=Math.max(0,Math.floor(x0)),sy=Math.max(0,Math.floor(y0));
+    const sw=Math.max(2,Math.min(image.width-sx,Math.ceil(x1-x0)));
+    const sh=Math.max(2,Math.min(image.height-sy,Math.ceil(y1-y0)));
     const scale=Math.max(2,Math.min(3.2,1600/sw));
     const canvas=document.createElement('canvas');
     canvas.width=Math.round(sw*scale);canvas.height=Math.round(sh*scale);
     const ctx=canvas.getContext('2d',{willReadFrequently:true});
     ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
     ctx.drawImage(image,sx,sy,sw,sh,0,0,canvas.width,canvas.height);
-    // Improve low-contrast greenish label photographs without binary clipping.
     const pix=ctx.getImageData(0,0,canvas.width,canvas.height);
     for(let i=0;i<pix.data.length;i+=4){
       let v=.299*pix.data[i]+.587*pix.data[i+1]+.114*pix.data[i+2];
-      v=Math.max(0,Math.min(255,(v-125)*1.42+125));
+      v=Math.max(0,Math.min(255,(v-125)*contrast+125));
       pix.data[i]=pix.data[i+1]=pix.data[i+2]=v;
     }
     ctx.putImageData(pix,0,0);
-    const r=await worker.recognize(canvas,{}, {text:true});
-    return {text:r?.data?.text||'',confidence:r?.data?.confidence||0,label};
+    await worker.setParameters({tessedit_pageseg_mode:psm});
+    const r=await worker.recognize(canvas);
+    return {text:r?.data?.text||'',confidence:r?.data?.confidence??0,box:[sx,sy,sw,sh]};
   }
-  async function scanDetailRegion(worker,photoBlob){
+  async function scanDetailRegion(worker,photoBlob,tsv){
     const image=await imageToBitmap(photoBlob);
     try{
-      // The printed Description and Spec have different line boundaries.
-      // These two cropped calls prevent the Spec text from consuming Part No.
-      await worker.setParameters({tessedit_pageseg_mode:'6'});
-      const desc=await scanTextStrip(worker,image,[.285,.276,.825,.343],{label:'Description'});
-      const spec=await scanTextStrip(worker,image,[.280,.343,.825,.436],{label:'Spec'});
-      let description=cleanDescriptionOCR(desc.text), specification=cleanSpecOCR(spec.text);
-      // Portrait labels with 2-line descriptions can benefit from sparse text mode.
-      if(!description){
-        await worker.setParameters({tessedit_pageseg_mode:'11'});
-        const retry=await scanTextStrip(worker,image,[.275,.275,.840,.342],{label:'Description retry'});
-        await worker.setParameters({tessedit_pageseg_mode:'6'});
-        description=cleanDescriptionOCR(retry.text);
+      const g=labelGeometry(tsv,image.width,image.height);
+      const scale=g.gap;
+      const x0=g.x0,x1=g.x1;
+      const desc=await scanTextStrip(worker,image,[x0,g.descY-scale*.18,x1,g.specY-scale*.18],{psm:'6',contrast:1.55});
+      // Read each spec line separately; the first line starts ABOVE 'Spec' caption.
+      const spec1=await scanTextStrip(worker,image,[x0,g.specY-scale*.21,x1,g.specY+scale*.015],{psm:'7',contrast:1.50});
+      const spec2=await scanTextStrip(worker,image,[x0,g.specY-scale*.015,x1,g.specY+scale*.25],{psm:'7',contrast:2.00});
+      let description=cleanDetail(desc.text,'description');
+      let s1=cleanDetail(spec1.text,'spec'),s2=cleanDetail(spec2.text,'spec');
+      // Never append the same first line again if line bands happen to overlap.
+      if(s1&&s2&&(s1===s2||s1.includes(s2)))s2='';
+      if(s2&&s1&&s2.includes(s1))s1='';
+      let specification=[s1,s2].filter(Boolean).join(' ');
+      if(!specification){
+        const whole=await scanTextStrip(worker,image,[x0,g.specY-scale*.23,x1,g.partY-scale*.11],{psm:'6',contrast:1.65});
+        specification=cleanDetail(whole.text,'spec');
       }
-      const raw=`[Description crop]\n${desc.text}\n[Spec crop]\n${spec.text}`;
-      await worker.setParameters({tessedit_pageseg_mode:'3'});
-      return {parsed:{description,spec:specification},raw};
-    }finally{if(image.close)image.close();}
+      // Avoid returning garbled partial headers as plausible descriptions.
+      if(/^(?:ption|FINN\s+Ne|nweep|noweep)\b/i.test(description))description='';
+      const raw=`[Adaptive ROI (${g.located?'anchors':'fallback'})]\n${JSON.stringify(g)}\n`+
+        `[Description]\n${desc.text}\n[Spec line 1]\n${spec1.text}\n[Spec line 2]\n${spec2.text}`;
+      return {parsed:{description,spec:specification},raw,geometry:g};
+    }finally{
+      await worker.setParameters({tessedit_pageseg_mode:'3'}).catch(()=>{});
+      if(image.close)image.close();
+    }
   }
   async function decodeQR(blob){
     if(!('BarcodeDetector' in window))return '';
@@ -267,16 +313,16 @@
   }
   async function recognizeLabel(force){
     if(busy)return;
-    if(!draft.photos[0]){toast('请先拍摄标签照片（第 1 张）。');return;}
+    if(!draft.photos[0]){toast(t('needLabelPhoto'));return;}
     try{
-      setBusy(true);setProgress('识别标签中','第一次使用需要下载 OCR 语言识别文件；照片只在本机处理。',5);
-      if(!window.Tesseract)throw new Error('OCR 程序尚未载入，请确认设备有联网并刷新网页。');
+      setBusy(true);setProgress(t('ocrInitializing'),t('ocrDownload'),5);
+      if(!window.Tesseract)throw new Error(t('ocrLibraryMissing'));
       if(!workerPromise){workerPromise=window.Tesseract.createWorker('eng',1,{logger:e=>{
-        if(e.status==='recognizing text'&&typeof e.progress==='number')setProgress('正在识别标签',`文字识别 ${Math.round(e.progress*100)}%`,15+Math.round(e.progress*62));
+        if(e.status==='recognizing text'&&typeof e.progress==='number')setProgress(t('ocrRecognizing'),t('ocrPercent',{pct:Math.round(e.progress*100)}),15+Math.round(e.progress*62));
       }});}
       const worker=await workerPromise;
-      setProgress('正在识别标签','读取标签的号码、日期、重量…',20);
-      const [result,qr]=await Promise.all([worker.recognize(draft.photos[0].blob),decodeQR(draft.photos[0].blob)]);
+      setProgress(t('ocrRecognizing'),t('ocrReadFields'),20);
+      const [result,qr]=await Promise.all([worker.recognize(draft.photos[0].blob,{}, {text:true,tsv:true}),decodeQR(draft.photos[0].blob)]);
       const raw=result?.data?.text||'';
       const parsed=ocrParse(raw);
       if(qr){const qrParsed=ocrParse(qr);Object.keys(qrParsed).forEach(k=>{if(!parsed[k])parsed[k]=qrParsed[k];});}
@@ -285,15 +331,15 @@
       let detailRaw='';
       if(true){ // always inspect individual fields, even if whole-image OCR guessed them
         try{
-          setProgress('加强品名与规格识别','正在单独读取标签右侧 Description / Spec…',78);
-          const detail=await scanDetailRegion(worker,draft.photos[0].blob);
+          setProgress(t('ocrDetailTitle'),t('ocrDetailDesc'),78);
+          const detail=await scanDetailRegion(worker,draft.photos[0].blob,result?.data?.tsv||'');
           detailRaw=detail.raw;
           ['description','spec'].forEach(k=>{
             // Cropped result takes priority; retain only clean whole-image fallback.
             const v=detail.parsed[k];
             if(v){parsed[k]=v;return;}
-            const fallback=k==='spec'?cleanSpecOCR(parsed[k]):cleanDescriptionOCR(parsed[k]);
-            parsed[k]=fallback;
+            // Never copy untrusted whole-photo OCR fragments into the wrong field.
+            parsed[k]='';
           });
         }catch(err){console.warn('Optional label-detail OCR:',err);}
       }
@@ -306,46 +352,43 @@
         if(force||!old||completesLot){draft.fields[k]=v;form.elements.namedItem(k).value=v;}
       }
       draft.ocrRaw=raw+(detailRaw?`\n\n[Description / Spec 区域复核]\n${detailRaw}`:'')+(qr?`\n\n[QR Code]\n${qr}`:'');
-      $('ocr-raw').textContent=draft.ocrRaw||'未识别到文字';
+      $('ocr-raw').textContent=draft.ocrRaw||t('ocrNone');
       const picked=Object.entries(parsed).filter(([k,v])=>v&&FIELD_KEYS.includes(k)).length;
       const confidence=result?.data?.confidence;
       const missing=[['lotNo','Lot No.'],['description','Description'],['spec','Spec']].filter(([k])=>!draft.fields[k]).map(([,v])=>v);
-      $('ocr-status').textContent=`已识别 ${picked} 个字段${Number.isFinite(confidence)?` · 文本置信度 ${Math.round(confidence)}%`:''}。请核对 Lot / Description / Spec / Part / Net。`;
-      if(missing.length)notice(`仍未可靠读取：${missing.join('、')}。请看标签照片核对并手动填写，不会猜测缺失内容。`);
-      else if(picked<4)notice('本张标签识别较少：请确保照片清楚、光线充足并正对标签，或在下方手动修改资料。');
+      $('ocr-status').textContent=t('ocrStatusDone',{n:picked,confidence:Number.isFinite(confidence)?t('confidence',{pct:Math.round(confidence)}):''});
+      if(missing.length)notice(t('ocrMissing',{fields:missing.join(', ')}));
+      else if(picked<4)notice(t('ocrFew'));
       else notice('');
-      toast(`自动识别完成：找到 ${picked} 项字段，请核对准确性。`);
-    }catch(err){workerPromise=undefined;notice(`OCR 识别未完成：${err.message}。可手动输入标签资料，照片仍能保存。`);$('ocr-status').textContent='识别失败，可手动填写或重试。';}
+      toast(t('ocrFinished',{n:picked}));
+    }catch(err){workerPromise=undefined;notice(t('ocrFailure',{error:err.message}));$('ocr-status').textContent=t('ocrFailureStatus');}
     finally{hideProgress();setBusy(false);}
   }
 
   async function save(){
     if(busy)return;readForm();
     const count=draft.photos.filter(Boolean).length;
-    if(!draft.fields.labelNo){toast('请填写 Label No.');form.elements.namedItem('labelNo').focus();return;}
-    if(!draft.photos[0]||!draft.photos[1]||count<2){toast('每个标签必须包含：标签照片（1）和物料照片（2）；第 3 张可选。');notice('保存前须至少放入标签照片 + 物料照片，共 2 张；最多 3 张。');return;}
+    if(!draft.fields.labelNo){toast(t('needLabelNo'));form.elements.namedItem('labelNo').focus();return;}
+    if(!draft.photos[0]||!draft.photos[1]||count<2){toast(t('needTwoPhotos'));notice(t('needTwoNotice'));return;}
     const others=records.filter(r=>r.id!==draft.id&&safeString(r.fields.labelNo)===draft.fields.labelNo);
-    if(others.length&&!confirm(`Label ${draft.fields.labelNo} 已保存过 ${others.length} 组。确定仍要新增另一组照片吗？`))return;
+    if(others.length&&!confirm(t('confirmDuplicate',{label:draft.fields.labelNo,n:others.length})))return;
     draft.updatedAt=new Date().toISOString();
-    try{await putRecord(draft);await reload();$('form-state').textContent='已保存 · 可继续修改';$('btn-delete').hidden=false;toast(`Label ${draft.fields.labelNo} 已保存（${count} 张照片）。`);notice('');}
-    catch(err){notice('保存失败：'+err.message+'。可尝试减少照片大小、检查浏览器储存空间。');}
+    try{await putRecord(draft);await reload();$('form-state').textContent=t('savedState');$('btn-delete').hidden=false;toast(t('savedToast',{label:draft.fields.labelNo,n:count}));notice('');}
+    catch(err){notice(t('saveFail',{error:err.message}));}
   }
   async function deleteCurrent(){
     if(!records.some(r=>r.id===draft.id))return;
-    if(!confirm(`确定要删除 Label ${draft.fields.labelNo} 的整组记录和所有照片吗？删除后无法撤销。`))return;
-    await removeRecord(draft.id);newDraft();await reload();toast('已删除这组标签和照片。');
+    if(!confirm(t('confirmDelete',{label:draft.fields.labelNo})))return;
+    await removeRecord(draft.id);newDraft();await reload();toast(t('deletedToast'));
   }
   function excelTheme(cell,isHeader=false){cell.alignment={vertical:'middle',wrapText:true};if(isHeader){cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF1D4266'}};cell.font={bold:true,color:{argb:'FFFFFFFF'},size:10};}else{cell.font={color:{argb:'FF1E3651'},size:10};}}
   function numOrEmpty(value){return value!=='' && value!==null && Number.isFinite(Number(value))?Number(value):safeString(value);}
   // One record per row. The first 3 columns are reserved for inline photos;
   // the data fields begin in column D (Label No.).
+  // One record per row. Photo placeholders belong to Excel columns A:C,
+  // the six requested fields begin at D; legacy fields are not exported.
   function sheetRows(){return records.map(r=>{const f=r.fields;return [
-    safeString(f.labelNo),safeString(f.lotNo),safeString(f.description),safeString(f.spec),safeString(f.partNo),
-    numOrEmpty(f.netKg),numOrEmpty(f.containerKg),numOrEmpty(f.grossKg),safeString(f.date),
-    safeString(f.weigher),safeString(f.checker),safeString(f.source),safeString(f.taxCode),
-    safeString(f.warehouse),safeString(f.location),safeString(f.racking),safeString(f.row),
-    safeString(f.remarks),r.photos.filter(Boolean).length,
-    safeString(r.updatedAt).replace('T',' ').slice(0,19)
+    safeString(f.labelNo),safeString(f.lotNo),safeString(f.description),safeString(f.spec),safeString(f.partNo),numOrEmpty(f.netKg)
   ];});}
   async function imageForExcel(blob){
     // Use moderately compressed, high-enough resolution photos. Their displayed
@@ -367,22 +410,20 @@
 
   async function exportExcel(){
     if(busy)return;
-    if(!records.length){toast('没有已保存的标签可导出。');return;}
-    if(!window.ExcelJS){notice('Excel 程序未加载。请连接互联网后刷新网页重试。');return;}
+    if(!records.length){toast(t('noExcelRecords'));return;}
+    if(!window.ExcelJS){notice(t('excelMissing'));return;}
     try{
-      setBusy(true);setProgress('制作 Excel 文件','正在建立照片与标签同一行的表格…',3);
+      setBusy(true);setProgress(t('excelTitle'),t('excelBuilding'),3);
       const wb=new window.ExcelJS.Workbook();
       wb.creator='Label Photo Register';wb.created=new Date();
       // Intentionally ONE worksheet: all photos and information stay in the same row.
       const sheet=wb.addWorksheet('Label Records',{views:[{state:'frozen',ySplit:3}]});
       const headers=[
         'Photo 1','Photo 2','Photo 3',
-        'Label No.','Lot No.','Description','Spec','Part No.',
-        'Net (KG)','Container (KG)','Gross (KG)','Date','Weigher','Check',
-        'Source','Tax Code','Warehouse','Location','Racking No.','Row No.',
-        'Remarks','Photo Count','Last Saved'
+        'Label No.','Lot No.','Description','Spec','Part No.','Net (KG)'
       ];
-      const widths=[17,17,17,16,17,41,20,23,15,16,15,17,15,15,21,12,16,16,15,13,28,14,23];
+      // Excel column widths 15 ≈ 110px; the image remains within a 1.03-inch square.
+      const widths=[15,15,15,16,19,44,39,23,16];
       sheet.columns=headers.map((_,i)=>({key:`c${i}`,width:widths[i]}));
       sheet.mergeCells(1,1,1,headers.length);
       const title=sheet.getCell('A1');title.value='LABEL PHOTO REGISTER  |  PHOTOS + DETAILS';
@@ -404,14 +445,14 @@
         const wsRow=sheet.getRow(rowIndex);
         // Three blank photo cells (A:C), then Label No. begins at D.
         wsRow.values=[,'','','',...data];
-        wsRow.height=72; // ~96px; compact photo rows and readable details
+        wsRow.height=74.16; // Excel points: 1.03 inch = 74.16 pt ≈ 99px
         wsRow.eachCell({includeEmpty:true},(c,col)=>{
           excelTheme(c);
           c.alignment={vertical:'middle',wrapText:true,horizontal:col<=3?'center':'left'};
           if(i%2===1)c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF3F7FB'}};
           if(col<=3)c.border={top:{style:'hair',color:{argb:'FFD6E3F0'}},bottom:{style:'hair',color:{argb:'FFD6E3F0'}},left:{style:'hair',color:{argb:'FFD6E3F0'}},right:{style:'hair',color:{argb:'FFD6E3F0'}}};
-          if([4,5,8,16].includes(col))c.numFmt='@'; // keep leading-zero IDs as text
-          if([9,10,11].includes(col)&&typeof c.value==='number')c.numFmt='0.000';
+          if([4,5,8].includes(col))c.numFmt='@'; // keep leading-zero IDs as text
+          if(col===9&&typeof c.value==='number')c.numFmt='0.000';
         });
         const label=wsRow.getCell(4);
         label.font={bold:true,color:{argb:'FF135FAD'},size:11};
@@ -424,12 +465,12 @@
       sheet.pageSetup={orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0};
       // Embed photos directly INTO A, B, C of the same row as each Label No.
       // Excel images are anchored to cells and preserve their aspect ratio.
-      const colWidthPx=124; // ExcelJS width 17 is approximately 124px
-      const rowHeightPx=72*4/3; // Excel row height is expressed in points
-      const maxPhotoW=114,maxPhotoH=83; // small 4:3 placement frame, original picture ratio preserved
+      const colWidthPx=110; // Approximate rendered width of photo columns, each width 15.
+      const rowHeightPx=74.16*4/3; // 1.03 inches at 96 pixels/inch.
+      const maxPhotoW=98,maxPhotoH=98; // 1.03-inch square bounding box; preserve image aspect ratio.
       for(let i=0;i<records.length;i++){
         const r=records[i],rowIndex=i+4;
-        setProgress('正在把小照片插入 Excel',`Label ${safeString(r.fields.labelNo)} · 第 ${i+1}/${records.length} 组`,10+Math.round(78*i/records.length));
+        setProgress(t('excelPhotoTitle'),t('excelPhotoDetail',{label:safeString(r.fields.labelNo),i:i+1,total:records.length}),10+Math.round(78*i/records.length));
         for(let j=0;j<3;j++){
           const p=r.photos[j];if(!p||!p.blob)continue;
           const img=await imageForExcel(p.blob);
@@ -447,21 +488,21 @@
           });
         }
       }
-      setProgress('正在生成 Excel 文件','正在封装单张工作表及所有嵌入照片…',92);
+      setProgress(t('excelWrapping'),t('excelWrappingDesc'),92);
       const buffer=await wb.xlsx.writeBuffer();
       download(new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),`Label_Photos_Inline_${timestamp()}.xlsx`);
-      toast(`Excel 导出完成：${records.length} 组，照片与资料全部在同一张工作表。`);
-    }catch(e){notice('Excel 导出失败：'+e.message);}
+      toast(t('excelDone',{n:records.length}));
+    }catch(e){notice(t('excelFail',{error:e.message}));}
     finally{hideProgress();setBusy(false);}
   }
 
   function fileSegment(str){return safeString(str).replace(/[^\w\-]/g,'_').slice(0,40)||'unknown';}
   function escCsv(v){const s=safeString(v);return /[",\n\r]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;}
   async function exportZip(){
-    if(busy)return;if(!records.length){toast('没有已保存的标签可备份。');return;}
-    if(!window.JSZip){notice('ZIP 程序未加载。请连接互联网后刷新重试。');return;}
+    if(busy)return;if(!records.length){toast(t('noBackupRecords'));return;}
+    if(!window.JSZip){notice(t('zipMissing'));return;}
     try{
-      setBusy(true);setProgress('制作照片备份','包含应用保存的高清照片及完整记录',5);
+      setBusy(true);setProgress(t('zipTitle'),t('zipDescription'),5);
       const zip=new window.JSZip();const manifest={app:'TMC Label Photo Register',version:'1.0',exportedAt:new Date().toISOString(),records:[]};
       for(let i=0;i<records.length;i++){
         const rec=records[i],clone={id:rec.id,fields:rec.fields,createdAt:rec.createdAt,updatedAt:rec.updatedAt,ocrRaw:rec.ocrRaw||'',photos:[null,null,null]};
@@ -471,44 +512,51 @@
           zip.file(path,p.blob);clone.photos[j]={path,name:p.name,takenAt:p.takenAt||''};
         }
         manifest.records.push(clone);
-        setProgress('制作照片备份',`整理 Label ${rec.fields.labelNo} (${i+1}/${records.length})`,8+Math.round(35*(i+1)/records.length));
+        setProgress(t('zipTitle'),t('zipProgress',{label:rec.fields.labelNo,i:i+1,total:records.length}),8+Math.round(35*(i+1)/records.length));
       }
       zip.file('records.json',JSON.stringify(manifest,null,2));
-      zip.file('label_records.csv','\uFEFF'+[['Label No.','Lot No.','Description','Spec','Part No.','Net (KG)','Container (KG)','Gross (KG)','Date','Weigher','Check','Source','Tax Code','Warehouse','Location','Racking No.','Row No.','Remarks','Photo Count','Photo 1','Photo 2','Photo 3','Last Saved'].join(','),...sheetRows().map(r=>r.map(escCsv).join(','))].join('\r\n'));
-      const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:4}},meta=>setProgress('正在压缩照片',`已完成 ${Math.round(meta.percent)}%`,43+Math.round(meta.percent*.55)));
-      download(blob,`TMC_Label_Backup_${timestamp()}.zip`);toast('ZIP 备份完成，包含所有照片和资料。');
-    }catch(e){notice('ZIP 导出失败：'+e.message);}
+      // CSV can't contain inline photos; use relative filenames that match the ZIP photos.
+      const csvHeaders=['Photo 1','Photo 2','Photo 3','Label No.','Lot No.','Description','Spec','Part No.','Net (KG)'];
+      const csvRows=records.map((rec,i)=>[
+        ...[0,1,2].map(j=>rec.photos[j]?`photos/${String(i+1).padStart(4,'0')}_${fileSegment(rec.fields.labelNo)}/photo_${j+1}.jpg`:''),
+        ...sheetRows()[i]
+      ]);
+      zip.file('label_records.csv','\uFEFF'+[csvHeaders.map(escCsv).join(','),...csvRows.map(r=>r.map(escCsv).join(','))].join('\r\n'));
+      const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:4}},meta=>setProgress(t('zipCompress'),t('zipPercent',{pct:Math.round(meta.percent)}),43+Math.round(meta.percent*.55)));
+      download(blob,`TMC_Label_Backup_${timestamp()}.zip`);toast(t('zipDone'));
+    }catch(e){notice(t('zipFail',{error:e.message}));}
     finally{hideProgress();setBusy(false);}
   }
   async function importZip(file){
     if(!file||busy)return;
-    if(!window.JSZip){notice('ZIP 程序未加载。请连接互联网后刷新重试。');return;}
+    if(!window.JSZip){notice(t('zipMissing'));return;}
     try{
-      setBusy(true);setProgress('读取备份','正在检查 ZIP 内容',5);
-      const zip=await window.JSZip.loadAsync(file);const meta=zip.file('records.json');if(!meta)throw new Error('ZIP 内没有 records.json，这不是 TMC 应用备份。');
+      setBusy(true);setProgress(t('importTitle'),t('importChecking'),5);
+      const zip=await window.JSZip.loadAsync(file);const meta=zip.file('records.json');if(!meta)throw new Error(t('errNoManifest'));
       const manifest=JSON.parse(await meta.async('string'));
-      if(manifest.app!=='TMC Label Photo Register'||!Array.isArray(manifest.records))throw new Error('备份格式不正确');
-      if(!confirm(`备份包含 ${manifest.records.length} 组标签。导入后同编号 ID 的记录会更新，其他记录保留。是否继续？`))return;
+      if(manifest.app!=='TMC Label Photo Register'||!Array.isArray(manifest.records))throw new Error(t('errBadBackup'));
+      if(!confirm(t('importConfirm',{n:manifest.records.length})))return;
       for(let i=0;i<manifest.records.length;i++){
         const m=manifest.records[i];const r={id:m.id||freshRecord().id,fields:{...freshRecord().fields,...m.fields},photos:[null,null,null],createdAt:m.createdAt||new Date().toISOString(),updatedAt:m.updatedAt||new Date().toISOString(),ocrRaw:m.ocrRaw||''};
         for(let j=0;j<3;j++){
           const p=m.photos&&m.photos[j];if(!p)continue;
-          if(!p.path||p.path.includes('..')||p.path.startsWith('/'))throw new Error('备份照片路径不正确');
-          const f=zip.file(p.path);if(!f)throw new Error('备份照片缺失：'+p.path);
+          if(!p.path||p.path.includes('..')||p.path.startsWith('/'))throw new Error(t('errInvalidPhotoPath'));
+          const f=zip.file(p.path);if(!f)throw new Error(t('errMissingPhoto',{path:p.path}));
           const blob=await f.async('blob');r.photos[j]={blob:new Blob([blob],{type:'image/jpeg'}),name:p.name||`photo_${j+1}.jpg`,takenAt:p.takenAt||''};
         }
-        await putRecord(r);setProgress('恢复标签记录',`${i+1} / ${manifest.records.length}`,10+Math.round(88*(i+1)/manifest.records.length));
+        await putRecord(r);setProgress(t('importRestoring'),`${i+1} / ${manifest.records.length}`,10+Math.round(88*(i+1)/manifest.records.length));
       }
-      await reload();newDraft();toast(`备份导入完成：${manifest.records.length} 组标签。`);notice('');
-    }catch(err){notice('导入备份失败：'+err.message);}
+      await reload();newDraft();toast(t('importDone',{n:manifest.records.length}));notice('');
+    }catch(err){notice(t('importFail',{error:err.message}));}
     finally{hideProgress();setBusy(false);$('zip-import-input').value='';}
   }
-  function addDeleteButton(){const b=document.createElement('button');b.type='button';b.id='btn-delete';b.className='button button-outline';b.textContent='删除本组';b.hidden=true;b.style.color='#aa4343';$('btn-clear').before(b);b.addEventListener('click',()=>deleteCurrent().catch(e=>notice(e.message)));}
+  function addDeleteButton(){const b=document.createElement('button');b.type='button';b.id='btn-delete';b.className='button button-outline';b.textContent=t('deleteButton');b.dataset.i18n='deleteButton';b.hidden=true;b.style.color='#aa4343';$('btn-clear').before(b);b.addEventListener('click',()=>deleteCurrent().catch(e=>notice(e.message)));}
   async function start(){
-    addDeleteButton();loadToForm();
+    addDeleteButton();applyLanguage();loadToForm();
+    $('language-select').addEventListener('change', e => setLanguage(e.target.value));
     document.querySelectorAll('[data-photo-action]').forEach(b=>b.addEventListener('click',()=>{
       const slot=Number(b.dataset.slot),action=b.dataset.photoAction;
-      if(action==='remove'){if(busy)return;draft.photos[slot]=null; if(slot===0){draft.ocrRaw='';$('ocr-raw').textContent='暂无识别内容';$('ocr-status').textContent='上传标签照片后自动识别。';}renderPhotos();return;}
+      if(action==='remove'){if(busy)return;draft.photos[slot]=null; if(slot===0){draft.ocrRaw='';$('ocr-raw').textContent=t('ocrNoText');$('ocr-status').textContent=t('ocrAfterRemove');}renderPhotos();return;}
       chosenSlot=slot;const input=action==='camera'?$('camera-input'):$('picker-input');input.value='';input.click();
     }));
     for(const input of [$('camera-input'),$('picker-input')])input.addEventListener('change',e=>{if(e.target.files&&e.target.files[0])setPhoto(chosenSlot,e.target.files[0]);});
@@ -517,9 +565,9 @@
     $('btn-ocr').addEventListener('click',()=>recognizeLabel(true));
     $('btn-excel').addEventListener('click',exportExcel);$('btn-zip').addEventListener('click',exportZip);$('btn-import').addEventListener('click',()=>$('zip-import-input').click());$('zip-import-input').addEventListener('change',e=>{if(e.target.files?.[0])importZip(e.target.files[0]);});
     $('search-records').addEventListener('input',renderList);
-    try{db=await dbOpen();await reload();}catch(err){notice('无法使用本机储存：'+err.message+'。请使用最新版 Chrome / Edge 并允许网站储存资料。');}
-    if(location.protocol==='file:')notice('当前使用 file:// 方式打开；建议将整个文件夹部署到 GitHub Pages（HTTPS），以便 OCR、保存及 PWA 更稳定。');
-    if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('./sw.js?v=1.5').catch(()=>{});
+    try{db=await dbOpen();await reload();}catch(err){notice(t('errLocalStorage',{error:err.message}));}
+    if(location.protocol==='file:')notice(t('warningFile'));
+    if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('./sw.js?v=1.8').catch(()=>{});
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
 })();
