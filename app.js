@@ -1,4 +1,4 @@
-/* TMC Label Photo Register V1.3 — local-first photo grouping + browser OCR */
+/* TMC Label Photo Register V1.4 — local-first photo grouping + browser OCR */
 (() => {
   'use strict';
   const $ = (id) => document.getElementById(id);
@@ -104,12 +104,43 @@
     }catch(error){setBusy(false);hideProgress();notice(`读取照片失败：${error.message}`);}
   }
   function getRegex(text,reList){for(const re of reList){const match=text.match(re);if(match&&match[1])return match[1].trim();}return '';}
+  function cleanLot(str){
+    // Repeated label variants: 50077-2606-02, 20260617, etc.
+    // Preserve hyphens and leading zeros; OCR can mistake 5/0/1 for S/O/I.
+    const digits=safeString(str).replace(/[§Ss]/g,'5').replace(/[Oo]/g,'0').replace(/[Il|]/g,'1')
+      .replace(/[Bb]/g,'8').replace(/\s*-\s*/g,'-').replace(/\s+/g,'').replace(/[^0-9-]/g,'');
+    return digits.replace(/^-+|-+$/g,'');
+  }
+  function sanitizeDetail(line){
+    return safeString(line).replace(/[\u2018\u2019\u201c\u201d]/g,'').replace(/[|_]+\s*$/g,'')
+      .replace(/\s+/g,' ').replace(/^\s*(?:pn|pp|on|\*|[#:;=]+)\s+(?=[A-Za-z])/i,'')
+      .replace(/Cu[Il|]Ni/gi,'Cu/Ni').replace(/\bw\s*\/\s*au\b/gi,'w/Au')
+      .replace(/\s+\)/g,')').replace(/\(\s+/g,'(')
+      .replace(/^[^A-Za-z0-9(]+|[^A-Za-z0-9)]+$/g,'').trim();
+  }
+  function isFieldHeader(line){return /\b(?:Part\s*(?:No)?|Gross|Container|Net|Date|Weigher|Check|Source|Label|Lot\s*(?:No)?|Tax\s*Type|Code)\b/i.test(line);}
   function ocrParse(raw){
-    const text=raw.replace(/\r/g,'').replace(/\u00a0/g,' ').replace(/[‐‑–—]/g,'-');
+    const text=safeString(raw).replace(/\r/g,'').replace(/\u00a0/g,' ').replace(/[‐‑–—]/g,'-');
     const lines=text.split('\n').map(x=>x.trim().replace(/\s+/g,' ')).filter(Boolean);
     const out={};
     out.labelNo=getRegex(text,[/\bLABE[L1I]\s*[:;.\-]?\s*(\d{4,12})\b/i,/\bLABEL\s*(?:NO\.?)?\s*[:;.\-]?\s*(\d{4,12})/i]);
-    out.lotNo=getRegex(text,[/\bLOT\s*(?:NO\.?)?\s*[:;.\-]?\s*(\d{5,15})\b/i]);
+    // The previous version only captured the first numeric group of a hyphenated lot.
+    const directLot=getRegex(text,[/\bLOT\s*(?:NO\.?)?\s*[:;.\-]?\s*([\dSs§OoIl|]{4,14}(?:\s*-\s*[\dSs§OoIl|]{2,8}){0,3})/i]);
+    const hybridLots=[];
+    // Whole-image OCR sometimes reads the value before the printed 'LOT No.' caption.
+    // A hyphenated number is more useful than a truncated prefix, but search only
+    // in the top section so that other warehouse codes aren't mistaken for Lot.
+    for(const l of lines.slice(0,Math.max(9,Math.ceil(lines.length*.55)))){
+      const candidates=l.match(/[\dSs§OoIl|]{4,14}(?:\s*-\s*[\dSs§OoIl|]{2,8}){1,3}/g)||[];
+      candidates.forEach(x=>{const v=cleanLot(x);if(/^\d{4,14}(?:-\d{2,8}){1,3}$/.test(v))hybridLots.push(v);});
+    }
+    out.lotNo=cleanLot(directLot);
+    if(hybridLots.length){
+      hybridLots.sort((x,y)=>y.length-x.length);
+      // Use the extended lot if the OCR prefixes agree, or a plausible OCR-substituted prefix.
+      const full=hybridLots.find(v=>!out.lotNo||v.startsWith(out.lotNo)||out.lotNo.startsWith(v.split('-')[0]));
+      if(full)out.lotNo=full;
+    }
     out.partNo=getRegex(text,[/\bPART\s*(?:NO\.?)?\s*[:;.\-]?\s*(\d{9,18})\b/i,/\bPART\s*(?:NO\.?)?\s*[:;.\-]?\s*([\d\s]{10,22})/i]).replace(/\s/g,'');
     out.netKg=getRegex(text,[/\bNET\s*[:;.\-]?\s*(\d{1,8}(?:[.,]\d{1,4})?)\s*(?:K[GC]S?)?/i]).replace(',','.');
     out.containerKg=getRegex(text,[/\bCONTAINER\s*[:;.\-]?\s*(\d{1,8}(?:[.,]\d{1,4})?)\s*(?:K[GC]S?)?/i]).replace(',','.');
@@ -119,33 +150,98 @@
     out.checker=getRegex(text,[/\bCHECK\s*[:;.\-]?\s*([A-Z0-9]{4,12})\b/i]);
     out.taxCode=getRegex(text,[/\bCODE\s*[:;.\-]?\s*(\d{1,4})\b/i]);
     const sourceLine=lines.find(l=>/\bSource\b/i.test(l));
-    if(sourceLine)out.source=sourceLine.replace(/^.*?\bSource\b\s*[:;.]?\s*/i,'').trim();
+    if(sourceLine){
+      const v=sourceLine.replace(/^.*?\bSource\b\s*[:;.]?\s*/i,'').trim();
+      const match=v.match(/\b[A-Z0-9]{2,16}\b/i);
+      if(match)out.source=match[0];
+    }
+    // Look for text on the caption row. The secondary region scan below rescues
+    // descriptions/specifications where whole-photo OCR does not see captions.
     const descIdx=lines.findIndex(l=>/\bDescription\b/i.test(l));
     const specIdx=lines.findIndex(l=>/\bSpec\b/i.test(l));
     if(descIdx>=0){
-      let group=[];
+      const group=[];
       const after=lines[descIdx].replace(/^.*?\bDescription\b\s*[:;.\-]?\s*/i,'').trim();
-      if(after&&!/^(source|spec|gross|container|net|part|lot|label)\b/i.test(after))group.push(after);
-      // Some TMC labels place the first line of the description ABOVE the printed "Description" caption.
-      if(descIdx>0){const prev=lines[descIdx-1];if(prev.length>9&&!/(source|lot\s*no|label|weigher|\bdate\b|\bnet\b|\bpart\b|spec|gross|container)/i.test(prev))group.unshift(prev);}
-      for(let i=descIdx+1;i<Math.min(lines.length,descIdx+5);i++){
-        const line=lines[i];if(/^(?:spec|part\s*no|gross|container|net|date|weigher|check)\b/i.test(line))break;
-        // Scanner sometimes reads "Mixed" on the same row as the spec label.
-        if(/^(?:[A-Za-z]{0,4}\s+)?Mixed$/i.test(line) && specIdx>=0 && i+1===specIdx)break;
-        if(line.length>=3 && !/^\W+$/.test(line))group.push(line);
+      if(after&&!isFieldHeader(after))group.push(sanitizeDetail(after));
+      if(specIdx>descIdx){
+        for(let i=descIdx+1;i<specIdx;i++){
+          if(isFieldHeader(lines[i]))break;
+          const v=sanitizeDetail(lines[i]);if(v.length>=3)group.push(v);
+        }
       }
-      if(group.length)out.description=group.join(' ').replace(/\s{2,}/g,' ').trim();
+      if(group.length)out.description=group.join(' ');
     }
-    if(specIdx>=0){const after=lines[specIdx].replace(/^.*?\bSpec\b\s*[:;.\-]?\s*/i,'').trim();
-      if(after && !/^(part|net|gross|container)\b/i.test(after))out.spec=after;
-      else if(specIdx>0 && /^\s*(?:[A-Za-z]{1,4}\s+)?[A-Za-z][A-Za-z\d /-]{1,24}$/.test(lines[specIdx-1])){
-        out.spec=lines[specIdx-1].replace(/^[A-Za-z]{1,4}\s+(?=Mixed$)/i,'').trim();
+    if(specIdx>=0){
+      const group=[];
+      const after=lines[specIdx].replace(/^.*?\bSpec\b\s*[:;.\-]?\s*/i,'').trim();
+      if(after&&!isFieldHeader(after))group.push(sanitizeDetail(after));
+      for(let i=specIdx+1;i<Math.min(lines.length,specIdx+4);i++){
+        if(isFieldHeader(lines[i])||/\bDescription\b/i.test(lines[i]))break;
+        const v=sanitizeDetail(lines[i]);if(v.length>=3)group.push(v);
       }
+      if(group.length)out.spec=group.join(' ');
     }
-    if(!out.spec && /\bMixed\b/i.test(text))out.spec='Mixed';
-    // Rescue net for a common recognition error such as "gE NET".
-    if(!out.labelNo){const l=lines.slice(0,7).join(' ').match(/\b(0\d{5,8})\b/);if(l)out.labelNo=l[1];}
+    if(!out.spec && /\bMixed\b/i.test(text) && specIdx>=0)out.spec='Mixed';
+    if(!out.labelNo){const l=lines.slice(0,9).join(' ').match(/\b(0\d{5,8})\b/);if(l)out.labelNo=l[1];}
     return out;
+  }
+  function parseDetailRegion(ocrData){
+    const raw=safeString(ocrData?.text||'');
+    // Most printed labels place Description and Spec directly one above the
+    // other. Separate rows by actual vertical position where OCR provides it.
+    const described=[];
+    const specified=[];
+    const lines=Array.isArray(ocrData?.lines)?ocrData.lines:[];
+    if(lines.length){
+      for(const line of lines){
+        const value=sanitizeDetail(line.text||'');
+        if(!value||value.length<3||/^(Description|Spec|Part No\.)\s*:?$/i.test(value))continue;
+        const top=Number(line.bbox?.y0);
+        const bottom=Number(line.bbox?.y1);
+        if(!Number.isFinite(top)||!Number.isFinite(bottom))continue;
+        // ROI begins at 27.4% of photo height; 35.0% is the row divider.
+        // Coordinates of OCR lines are relative to the cropped ROI image.
+        const center=(top+bottom)/2;
+        (center<.075/.175*ocrData._roiHeight?described:specified).push(value);
+      }
+    }
+    if(described.length&&specified.length)return {description:described.join(' '),spec:specified.join(' ')};
+    // Fallback when the OCR library returns only plain text.
+    const rows=raw.split(/\r?\n/).map(sanitizeDetail).filter(v=>v.length>=3&& !/^(Description|Spec)\b/i.test(v));
+    if(rows.length<2)return {};
+    if(rows.length===2)return {description:rows[0],spec:rows[1]};
+    const mixed=rows.findIndex((x,i)=>i>0&&/^Mixed$/i.test(x));
+    if(mixed===rows.length-1)return {description:rows.slice(0,mixed).join(' '),spec:rows[mixed]};
+    return {description:rows[0],spec:rows.slice(1).join(' ')};
+  }
+  async function scanDetailRegion(worker,photoBlob){
+    const image=await imageToBitmap(photoBlob);
+    try{
+      // Dedicated scan avoids Chinese captions & QR patterns that confuse
+      // Tesseract when reading the label as one large image.
+      const x=.255,y=.274,width=.635,height=.175;
+      const sw=Math.max(1,Math.round(image.width*width));
+      const sh=Math.max(1,Math.round(image.height*height));
+      const scale=Math.max(1,Math.min(2.5,1200/sw));
+      const canvas=document.createElement('canvas');
+      canvas.width=Math.round(sw*scale);canvas.height=Math.round(sh*scale);
+      const ctx=canvas.getContext('2d',{willReadFrequently:true});
+      ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.drawImage(image,Math.round(image.width*x),Math.round(image.height*y),sw,sh,0,0,canvas.width,canvas.height);
+      const pixels=ctx.getImageData(0,0,canvas.width,canvas.height);
+      for(let i=0;i<pixels.data.length;i+=4){
+        const p=pixels.data;
+        const gray=.299*p[i]+.587*p[i+1]+.114*p[i+2];
+        const v=Math.max(0,Math.min(255,(gray-128)*1.48+128));
+        p[i]=v;p[i+1]=v;p[i+2]=v;
+      }
+      ctx.putImageData(pixels,0,0);
+      const ocr=await worker.recognize(canvas,{}, {text:true,blocks:true});
+      const data=ocr?.data||{};
+      // Some builds of Tesseract expose .lines only via .blocks.
+      const lines=data.lines||data.blocks?.flatMap(block=>block.paragraphs?.flatMap(par=>par.lines||[])||[])||[];
+      return {parsed:parseDetailRegion({text:data.text||'',lines,_roiHeight:canvas.height}),raw:data.text||''};
+    }finally{if(image.close)image.close();}
   }
   async function decodeQR(blob){
     if(!('BarcodeDetector' in window))return '';
@@ -158,7 +254,7 @@
       setBusy(true);setProgress('识别标签中','第一次使用需要下载 OCR 语言识别文件；照片只在本机处理。',5);
       if(!window.Tesseract)throw new Error('OCR 程序尚未载入，请确认设备有联网并刷新网页。');
       if(!workerPromise){workerPromise=window.Tesseract.createWorker('eng',1,{logger:e=>{
-        if(e.status==='recognizing text'&&typeof e.progress==='number')setProgress('正在识别标签',`文字识别 ${Math.round(e.progress*100)}%`,15+Math.round(e.progress*78));
+        if(e.status==='recognizing text'&&typeof e.progress==='number')setProgress('正在识别标签',`文字识别 ${Math.round(e.progress*100)}%`,15+Math.round(e.progress*62));
       }});}
       const worker=await workerPromise;
       setProgress('正在识别标签','读取标签的号码、日期、重量…',20);
@@ -166,17 +262,34 @@
       const raw=result?.data?.text||'';
       const parsed=ocrParse(raw);
       if(qr){const qrParsed=ocrParse(qr);Object.keys(qrParsed).forEach(k=>{if(!parsed[k])parsed[k]=qrParsed[k];});}
+      // Independent right-hand region scan is essential for bilingual TMC labels:
+      // the main OCR often loses Description and wrapped Spec completely.
+      let detailRaw='';
+      if(!parsed.description||!parsed.spec){
+        try{
+          setProgress('加强品名与规格识别','正在单独读取标签右侧 Description / Spec…',78);
+          const detail=await scanDetailRegion(worker,draft.photos[0].blob);
+          detailRaw=detail.raw;
+          ['description','spec'].forEach(k=>{if(detail.parsed[k])parsed[k]=detail.parsed[k];});
+        }catch(err){console.warn('Optional label-detail OCR:',err);}
+      }
       readForm();
       for(const [k,v] of Object.entries(parsed)){
         if(!FIELD_KEYS.includes(k)||!v)continue;
-        if(force||!draft.fields[k]){draft.fields[k]=v;form.elements.namedItem(k).value=v;}
+        const old=safeString(draft.fields[k]);
+        // Rescue a prior OCR truncation e.g. 50077 -> 50077-2606-02.
+        const completesLot=k==='lotNo'&&old&&!old.includes('-')&&v.startsWith(old+'-');
+        if(force||!old||completesLot){draft.fields[k]=v;form.elements.namedItem(k).value=v;}
       }
-      draft.ocrRaw=raw + (qr?`\n\n[QR Code]\n${qr}`:'');
+      draft.ocrRaw=raw+(detailRaw?`\n\n[Description / Spec 区域复核]\n${detailRaw}`:'')+(qr?`\n\n[QR Code]\n${qr}`:'');
       $('ocr-raw').textContent=draft.ocrRaw||'未识别到文字';
       const picked=Object.entries(parsed).filter(([k,v])=>v&&FIELD_KEYS.includes(k)).length;
       const confidence=result?.data?.confidence;
-      $('ocr-status').textContent=`已识别 ${picked} 个字段${Number.isFinite(confidence)?` · 文本置信度 ${Math.round(confidence)}%`:''}。请核对 Label / Lot / Part / Net。`;
-      if(picked<4)notice('本张标签识别较少：请确保照片清楚、光线充足并正对标签，或在下方手动修改资料。');else notice('');
+      const missing=[['lotNo','Lot No.'],['description','Description'],['spec','Spec']].filter(([k])=>!draft.fields[k]).map(([,v])=>v);
+      $('ocr-status').textContent=`已识别 ${picked} 个字段${Number.isFinite(confidence)?` · 文本置信度 ${Math.round(confidence)}%`:''}。请核对 Lot / Description / Spec / Part / Net。`;
+      if(missing.length)notice(`仍未可靠读取：${missing.join('、')}。请看标签照片核对并手动填写，不会猜测缺失内容。`);
+      else if(picked<4)notice('本张标签识别较少：请确保照片清楚、光线充足并正对标签，或在下方手动修改资料。');
+      else notice('');
       toast(`自动识别完成：找到 ${picked} 项字段，请核对准确性。`);
     }catch(err){workerPromise=undefined;notice(`OCR 识别未完成：${err.message}。可手动输入标签资料，照片仍能保存。`);$('ocr-status').textContent='识别失败，可手动填写或重试。';}
     finally{hideProgress();setBusy(false);}
@@ -382,7 +495,7 @@
     $('search-records').addEventListener('input',renderList);
     try{db=await dbOpen();await reload();}catch(err){notice('无法使用本机储存：'+err.message+'。请使用最新版 Chrome / Edge 并允许网站储存资料。');}
     if(location.protocol==='file:')notice('当前使用 file:// 方式打开；建议将整个文件夹部署到 GitHub Pages（HTTPS），以便 OCR、保存及 PWA 更稳定。');
-    if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('./sw.js?v=1.2').catch(()=>{});
+    if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('./sw.js?v=1.4').catch(()=>{});
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
 })();

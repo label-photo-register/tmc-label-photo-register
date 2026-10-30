@@ -5,20 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#142d49">
   <meta name="description" content="TMC 标签拍照识别，每个标签绑定 2–3 张照片，导出含照片的 Excel。">
-  <title>TMC Label Photo Register V1.3</title>
-  <link rel="manifest" href="manifest.webmanifest">
+  <title>TMC Label Photo Register V1.4</title>
+  <link rel="manifest" href="manifest.webmanifest?v=1.4">
   <link rel="icon" type="image/png" href="icon-192.png">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=1.4">
   <script defer src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-  <script defer src="app.js"></script>
+  <script defer src="app.js?v=1.4"></script>
 </head>
 <body>
 <div class="app">
   <header class="topbar">
-    <div class="brand"><span class="brand-icon"><img src="icon.svg" alt="TMC Label Photo Register 图标"></span><span><b>TMC Label Photo Register</b><small>智能标签照片登记 · V1.3</small></span></div>
+    <div class="brand"><span class="brand-icon"><img src="icon.svg" alt="TMC Label Photo Register 图标"></span><span><b>TMC Label Photo Register</b><small>智能标签照片登记 · V1.4</small></span></div>
     <span class="local-pill"><span class="dot"></span>仅储存在本机</span>
   </header>
 
@@ -45,14 +45,14 @@
         <article class="photo-card" data-slot="1"><div class="photo-preview" id="preview-1"><span class="photo-placeholder-icon">▧</span><b>物料照片</b><small>必需 · 与标签同一组</small></div><div class="photo-name" id="photo-name-1">尚未选择</div><div class="photo-actions"><button type="button" data-photo-action="camera" data-slot="1">拍照</button><button type="button" data-photo-action="pick" data-slot="1">上传</button><button type="button" data-photo-action="remove" data-slot="1" class="remove-photo" hidden>删除</button></div></article>
         <article class="photo-card" data-slot="2"><div class="photo-preview" id="preview-2"><span class="photo-placeholder-icon">▧</span><b>其他角度照片</b><small>可选 · 最多 3 张</small></div><div class="photo-name" id="photo-name-2">尚未选择</div><div class="photo-actions"><button type="button" data-photo-action="camera" data-slot="2">拍照</button><button type="button" data-photo-action="pick" data-slot="2">上传</button><button type="button" data-photo-action="remove" data-slot="2" class="remove-photo" hidden>删除</button></div></article>
       </div>
-      <div class="ocr-bar"><div><strong>标签识别（OCR）</strong><span id="ocr-status">上传第 1 张照片后自动识别；识别后请核对资料。</span></div><button type="button" id="btn-ocr" class="button button-outline small">↻ 重新识别</button></div>
+      <div class="ocr-bar"><div><strong>标签识别（OCR）</strong><span id="ocr-status">上传第 1 张照片后自动识别，并加强读取完整批号、品名和多行规格。</span></div><button type="button" id="btn-ocr" class="button button-outline small">↻ 重新识别</button></div>
       <details class="ocr-details" id="ocr-details"><summary>查看识别原文（用于检查不清楚的字段）</summary><pre id="ocr-raw">暂无识别内容</pre></details>
 
       <div class="section-title form-heading"><div><span class="step">02</span><div><h2>标签资料</h2><p>自动填写后仍可手动修正。重量、料号与批号会按原格式保存。</p></div></div><span class="form-hint">* 必填</span></div>
       <form id="record-form" autocomplete="off">
         <div class="form-grid">
           <label class="field"><span>Label No. *</span><input name="labelNo" placeholder="例如 000001" required inputmode="numeric"></label>
-          <label class="field"><span>Lot No.</span><input name="lotNo" placeholder="例如 20260101"></label>
+          <label class="field"><span>Lot No.</span><input name="lotNo" placeholder="例如 50077-2606-02"></label>
           <label class="field span-2"><span>Description / 品名</span><textarea name="description" rows="2" placeholder="识别到的完整品名"></textarea></label>
           <label class="field"><span>Spec / 规格</span><input name="spec" placeholder="例如 Mixed"></label>
           <label class="field"><span>Part No. / 料号</span><input name="partNo" placeholder="例如 1234567890123"></label>
