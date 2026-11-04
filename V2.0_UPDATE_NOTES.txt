@@ -1,0 +1,15 @@
+Label Photo Register V2.0 — OCR 修正版 / OCR improvements
+
+这版主要修正有污渍、文字模糊的标签识别问题：
+1. Lot No. 支持字母、数字及连字符，例如 FSL1809-2。避免将 Source 与 Lot 连在一起。
+2. Description 与 Spec 改为根据 Part No. 行的位置，独立读取标签对应文字区域。可保留多行 Description / Spec。
+3. 对扫描图像进行局部灰阶对比增强，并用逐行位置拆分文字。
+4. Net (KG) 未识别成功时，重新按重量行扫描。
+5. 保留中文、English、Bahasa Melayu、每组 2–3 张图片，以及照片嵌入 Excel 同一行功能。
+6. 本地资料库格式不变；正常更新不会主动清除记录和照片。更新前建议先导出 ZIP 备份。
+
+重要：软件使用 OCR，并不能保证污损标签百分之百准确。保存前须人工核对 Lot / Description / Spec / Part / Net。
+尤其是第一张照片若严重模糊、倾斜、反光，仍可能需要手动输入。
+
+部署：将 ZIP 解压后的所有文件放在原 GitHub Repository 根目录，覆盖同名文件并 Commit。
+请勿把公司的真实标签测试照片上传到公开仓库。
