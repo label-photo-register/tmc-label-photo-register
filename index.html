@@ -5,20 +5,20 @@
 <meta content="width=device-width, initial-scale=1, viewport-fit=cover" name="viewport"/>
 <meta content="#142d49" name="theme-color"/>
 <meta content="标签拍照识别，每个标签绑定 2–3 张照片，导出含照片的 Excel。" data-i18n-content="pageDescription" name="description"/>
-<title>Label Photo Register V2.1</title>
-<link href="manifest.webmanifest?v=2.1" rel="manifest"/>
+<title>Label Photo Register V2.2</title>
+<link href="manifest.webmanifest?v=2.2.1" rel="manifest"/>
 <link href="icon-192.png" rel="icon" type="image/png"/>
 <link href="icon-192.png" rel="apple-touch-icon"/>
-<link href="style.css?v=2.1" rel="stylesheet"/>
+<link href="style.css?v=2.2.1" rel="stylesheet"/>
 <script defer="" src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script defer="" src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script defer="" src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script defer="" src="app.js?v=2.1"></script>
+<script defer="" src="app.js?v=2.2.1"></script>
 </head>
 <body>
 <div class="app">
 <header class="topbar">
-<div class="brand"><span class="brand-icon"><img alt="Label Photo Register icon" src="icon.svg"/></span><span><b>TMC Label Photo Register</b><small data-i18n="brandSub">智能标签照片登记 · V2.1</small></span></div>
+<div class="brand"><span class="brand-icon"><img alt="Label Photo Register icon" src="icon.svg"/></span><span><b>TMC Label Photo Register</b><small data-i18n="brandSub">智能标签照片登记 · V2.2</small></span></div>
 <div class="language-switch"><label data-i18n="language" for="language-select">语言</label><select aria-label="Language / Bahasa / 语言" id="language-select"><option value="zh">中文</option><option value="en">English</option><option value="ms">Bahasa Melayu</option></select></div><span class="local-pill"><span class="dot"></span><span data-i18n="localOnly">仅储存在本机</span></span>
 </header>
 <section class="hero">
@@ -32,7 +32,14 @@
 <div class="side-heading"><div><h2 data-i18n="savedLabels">已保存的标签</h2><p><span id="record-count">0</span> <span data-i18n="groupsUnit">组资料</span></p></div><button aria-label="＋ 新增标签" class="icon-button" data-i18n-aria-label="newLabel" data-i18n-title="newLabel" id="btn-side-new" title="＋ 新增标签">＋</button></div>
 <input aria-label="搜索记录" class="search-box" data-i18n-aria-label="searchAria" data-i18n-placeholder="searchPlaceholder" id="search-records" placeholder="搜索 Label / Lot / Part…" type="search"/>
 <div class="record-list" id="record-list"><div class="empty-side" data-i18n="noRecords">暂无记录。先拍一张标签照片吧。</div></div>
-<div class="side-export"><h3 data-i18n="exportHeading">批量导出</h3><button class="button button-primary full" data-i18n="excelButton" id="btn-excel" type="button">↓ Excel（照片与资料同一行）</button><button class="button button-outline full" data-i18n="excelZoomTool" id="btn-excel-zoom" type="button">↗ Excel 照片放大工具（Windows）</button><p class="tiny" data-i18n="excelZoomHelp">电脑 Excel 宏功能：点击小照片放大；再次点击或约 9 秒后自动归位。下载工具后按说明在 .xlsm 中启用。手机 Excel 不支持宏。</p><button class="button button-secondary full" data-i18n="zipButton" id="btn-zip" type="button">↓ 照片 + 资料 ZIP 备份</button><button class="button button-outline full" data-i18n="importButton" id="btn-import" type="button">↑ 导入 ZIP 备份</button><input accept=".zip,application/zip" hidden="" id="zip-import-input" type="file"/><p class="tiny" data-i18n="backupHelp">支持每组 2–3 张照片。建议定期备份；浏览器资料不会自动同步到其他设备。</p></div>
+<div class="cleanup-panel">
+  <h3 data-i18n="exportStatusTitle">导出与清理</h3>
+  <div class="cleanup-counts" aria-live="polite"><span id="exported-count">已确认导出：0 组</span><span id="pending-count">等待确认：0 组</span><span id="notexported-count">未导出：0 组</span></div>
+  <button type="button" id="btn-mark-exported" class="button button-outline full" disabled>✓ 确认导出成功（0）</button>
+  <button type="button" id="btn-delete-exported" class="button button-danger-outline full" disabled>删除已导出记录（0）</button>
+  <p class="tiny" data-i18n="cleanupHelp">先导出文件并确认已保存，再删除已导出的记录和照片；未导出的不会删除。</p>
+</div>
+<div class="side-export"><h3 data-i18n="exportHeading">批量导出</h3><button class="button button-primary full" data-i18n="excelShareButton" id="btn-excel-share" type="button">↓ Excel 共享版（Windows 一键生成 .xlsm）</button><button class="button button-outline full" data-i18n="excelButton" id="btn-excel" type="button">↓ Excel（照片与资料同一行）</button><p class="tiny" data-i18n="excelShareHelp">下载含资料的共享 ZIP，电脑上解压并双击制作工具，就能生成可发送给同事的 .xlsm。首次需获得 Excel VBA 权限；对方仍须获准启用宏。手机 Excel 不支持宏。</p><button class="button button-secondary full" data-i18n="zipButton" id="btn-zip" type="button">↓ 照片 + 资料 ZIP 备份</button><button class="button button-outline full" data-i18n="importButton" id="btn-import" type="button">↑ 导入 ZIP 备份</button><input accept=".zip,application/zip" hidden="" id="zip-import-input" type="file"/><p class="tiny" data-i18n="backupHelp">支持每组 2–3 张照片。建议定期备份；浏览器资料不会自动同步到其他设备。</p></div>
 </aside>
 <main class="workspace">
 <div class="section-title"><div><span class="step">01</span><div><h2 data-i18n="captureHeading">拍摄 / 选择照片</h2><p data-i18n="captureDesc">第 1 张是标签，另外 1–2 张是同一物料的照片。</p></div></div><span class="count-badge" id="photo-count">0 / 3 张</span></div>

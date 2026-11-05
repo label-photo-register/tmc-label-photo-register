@@ -4,3 +4,14 @@
 .language-switch{margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0}.language-switch label{font-size:11px;font-weight:700;color:#dceafd;white-space:nowrap}.language-switch select{background:#f8fbff;color:#163857;border:1px solid #bdd0e1;border-radius:9px;padding:8px 9px;max-width:155px;font-size:12px;min-height:36px;cursor:pointer}.brand{min-width:0}.brand span:last-child{min-width:0}.brand b,.brand small{display:block}.local-pill{white-space:nowrap}
 @media(max-width:770px){.topbar{height:auto;min-height:68px;flex-wrap:wrap;gap:6px;padding:8px 0}.brand{flex:1 1 160px}.brand b{overflow-wrap:anywhere}.language-switch{order:2;margin-left:0}.local-pill{order:1}.language-switch select{max-width:145px}.hero h1{line-height:1.25}}
 @media(max-width:520px){.topbar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:10px 0}.topbar .brand{grid-column:1/-1;max-width:100%;flex:auto}.brand-icon{flex:0 0 42px}.brand b{font-size:14px;line-height:1.2}.brand small{line-height:1.2}.topbar .local-pill{grid-column:1;grid-row:2;font-size:10px;padding:7px 9px;justify-self:start;white-space:normal}.topbar .language-switch{grid-column:2;grid-row:2;order:unset;width:auto;margin:0;justify-self:end}.language-switch label{display:none}.topbar .language-switch select{width:150px;max-width:150px;padding:7px 6px}}
+
+/* V2.2 safe exported-record cleanup */
+.cleanup-panel{border-top:1px solid #e7edf4;padding:14px 0 0;margin:14px 0 0}
+.cleanup-panel h3{font-size:13px;margin:3px 0 9px}
+.cleanup-counts{display:flex;flex-direction:column;gap:5px;color:#62788c;font-size:11px;line-height:1.4}
+.button-danger-outline{color:#a53b42;background:#fff;border:1px solid #e5bac1}
+.button-danger-outline:not(:disabled):hover{background:#fff1f1}
+.record-list-row{display:flex;align-items:center;gap:5px;margin:8px 0}
+.record-list-row .record-item{flex:1;min-width:0;margin:0}
+.record-delete-button{flex:0 0 28px;height:31px;border:1px solid #e9c7ca;border-radius:7px;background:#fff6f6;color:#9f3b3b;font-size:18px;line-height:1}
+.export-status.exported{color:#267b52}.export-status.pending{color:#916a20}.export-status.unexported{color:#758394}

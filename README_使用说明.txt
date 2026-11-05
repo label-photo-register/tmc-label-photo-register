@@ -22,3 +22,13 @@ Windows 电脑版 Excel：将 .xlsx 另存为 .xlsm，在 VBA 编辑器导入 La
 手机 Excel / 网页 Excel 不支持执行此 VBA 宏；照片仍正常显示。
 宏仅更改照片的临时显示尺寸与位置，不修改库存资料或发送图片。
 切勿因本功能关闭全局宏安全设置；仅对您自己制作且信任的工作簿启用宏。
+
+V2.2 共享版 Excel（Windows）
+==========================
+页面新增「Excel 共享版（Windows）」按钮。与普通 .xlsx 导出不同，该按钮下载一个
+含 Label_Photos_Data.xlsx + 自动制作工具的 ZIP。解压到 Windows 后，双击
+Create_Shareable_Excel.vbs 就能使用已安装的桌面 Excel 生成 .xlsm。
+首次可能需要由 IT 批准「Trust access to VBA project object model」；之后
+Excel 宏模板留在本机，新的共享包重复双击即可，不必重新导入 VBA。
+接收方收到最终 .xlsm 后不必安装工具，但其 Excel 安全政策必须允许宏运行。
+不能在 Android 版 Excel 运行放大宏。详见共享 ZIP 中的 README_Shareable_Excel.txt。

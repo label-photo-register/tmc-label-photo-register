@@ -1,0 +1,23 @@
+Label Photo Register V2.2 - Safe cleanup after Excel export
+======================================================
+
+中文：
+1. 在「批量导出」下载 Excel (.xlsx)，或下载共享 ZIP 后在 Windows 制作最终 .xlsm。
+2. 实际打开文件，确认资料、2-3 张照片均已包含，并把文件储存在安全的位置。
+3. 回到网页「已保存的标签」>「导出与清理」>「确认导出成功」。
+4. 按「删除已导出记录（N）」并确认。只有确认过导出的记录会被删除，照片一起删除。
+5. 未导出及后来修改过的记录自动保留；修改已导出记录后会恢复「未导出」。
+6. 旧版 V2.1 已导出的记录不会自动假设为已导出，请重新导出或先做完整 ZIP 备份。
+7. 网页只记录下载已启动；无法知道浏览器下载是否成功或 .xlsm 是否转换成功。确认时务必先自行检查。
+8. 删除是永久操作；如需恢复，事先做好照片+资料 ZIP 备份。
+9. 系统使用原有 IndexedDB，不会在版本升级时删除照片。
+
+English:
+Download Excel and verify the file / final shareable .xlsm. Then choose Confirm export successful,
+followed by Delete exported records. Only explicitly confirmed, unchanged records are removed.
+A record changed after export returns to Not exported. Backup first: deletion is permanent.
+
+Bahasa Melayu:
+Eksport Excel dan semak fail / fail .xlsm akhir dahulu. Pilih Sahkan eksport berjaya,
+kemudian Padam rekod dieksport. Hanya rekod yang disahkan dan tidak diubah dipadam.
+Rekod yang diubah kembali kepada status Belum dieksport. Buat sandaran sebelum memadam.
