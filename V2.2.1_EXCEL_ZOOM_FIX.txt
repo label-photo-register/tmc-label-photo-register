@@ -1,0 +1,9 @@
+Label Photo Register V2.2.1 - Excel Zoom Link Diagnostics
+========================================================
+- The Windows converter now checks that the output workbook has a VBA project.
+- Assigns photo OnAction using module-qualified macro: LabelPhotoZoom.TogglePhotoZoom.
+- Refuses to report success if zero eligible photo shapes are linked.
+- Does not bypass Excel macro security policies.
+- Previously downloaded shared packages still include the older V2.2 converter. Export a NEW shared ZIP after deploying this update.
+- Existing browser records, export confirmation, and cleanup status are unchanged.
+- The converter has not been tested in desktop Windows Excel here. Validate with a test workbook before sending to colleagues.

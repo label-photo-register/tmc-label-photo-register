@@ -1,0 +1,9 @@
+V2.2.2 - Excel Zoom reliability update
+- Fix old/broken macro template reuse with a new versioned master.
+- Require VBA module and essential procedure signatures during first creation.
+- Assign pictures to LabelPhotoZoom.TogglePhotoZoom.
+- Verify saved .xlsm has VBA project and retains expected photo links.
+- Add CheckPhotoZoomReady macro for desktop troubleshooting.
+- Existing photo/label data and export cleanup are untouched.
+- No Windows Excel end-to-end test is possible in this environment; test the .xlsm on a Windows PC before sharing.
+- Corporate macro blocking is not resolved by updating the code; IT policy still applies.

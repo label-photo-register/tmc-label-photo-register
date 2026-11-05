@@ -18,7 +18,7 @@ Public Sub InstallPhotoZoom()
     For Each s In ws.Shapes
         If s.Type = msoPicture Or s.Type = msoLinkedPicture Then
             If s.TopLeftCell.Row >= 4 And s.TopLeftCell.Column <= 3 And s.TopLeftCell.Column >= 1 Then
-                s.OnAction = "'" & Replace(ThisWorkbook.Name, "'", "''") & "'!TogglePhotoZoom"
+                s.OnAction = "LabelPhotoZoom.TogglePhotoZoom"
                 n = n + 1
             End If
         End If
@@ -29,6 +29,12 @@ Public Sub InstallPhotoZoom()
     Exit Sub
 Failed:
     MsgBox "Could not activate photo zoom: " & Err.Description, vbExclamation
+End Sub
+
+Public Sub CheckPhotoZoomReady()
+    MsgBox "This workbook contains the photo-zoom VBA module." & vbCrLf & _
+           "If your company's Excel policy permits macros, click a thumbnail to test zoom.", _
+           vbInformation, "Label Photo Register"
 End Sub
 
 Public Sub TogglePhotoZoom()
