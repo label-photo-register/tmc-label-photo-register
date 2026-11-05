@@ -5,20 +5,21 @@
 <meta content="width=device-width, initial-scale=1, viewport-fit=cover" name="viewport"/>
 <meta content="#142d49" name="theme-color"/>
 <meta content="标签拍照识别，每个标签绑定 2–3 张照片，导出含照片的 Excel。" data-i18n-content="pageDescription" name="description"/>
-<title>Label Photo Register V2.2.2</title>
-<link href="manifest.webmanifest?v=2.2.3" rel="manifest"/>
+<title>Label Photo Register V2.3</title>
+<link href="manifest.webmanifest?v=2.3.0" rel="manifest"/>
 <link href="icon-192.png" rel="icon" type="image/png"/>
 <link href="icon-192.png" rel="apple-touch-icon"/>
-<link href="style.css?v=2.2.3" rel="stylesheet"/>
+<link href="style.css?v=2.3.0" rel="stylesheet"/>
 <script defer="" src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script defer="" src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script defer="" src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script defer="" src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script defer="" src="app.js?v=2.2.3"></script>
+<script defer="" src="app.js?v=2.3.0"></script>
 </head>
 <body>
 <div class="app">
 <header class="topbar">
-<div class="brand"><span class="brand-icon"><img alt="Label Photo Register icon" src="icon.svg"/></span><span><b>TMC Label Photo Register</b><small data-i18n="brandSub">智能标签照片登记 · V2.2.2</small></span></div>
+<div class="brand"><span class="brand-icon"><img alt="Label Photo Register icon" src="icon.svg"/></span><span><b>TMC Label Photo Register</b><small data-i18n="brandSub">智能标签照片登记 · V2.3</small></span></div>
 <div class="language-switch"><label data-i18n="language" for="language-select">语言</label><select aria-label="Language / Bahasa / 语言" id="language-select"><option value="zh">中文</option><option value="en">English</option><option value="ms">Bahasa Melayu</option></select></div><span class="local-pill"><span class="dot"></span><span data-i18n="localOnly">仅储存在本机</span></span>
 </header>
 <section class="hero">
@@ -48,7 +49,7 @@
 <article class="photo-card" data-slot="1"><div class="photo-preview" id="preview-1"><span class="photo-placeholder-icon">▧</span><b data-i18n="photoMaterial">物料照片</b><small data-i18n="photoMaterialHelp">必需 · 与标签同一组</small></div><div class="photo-name" data-i18n="notSelected" id="photo-name-1">尚未选择</div><div class="photo-actions"><button data-i18n="camera" data-photo-action="camera" data-slot="1" type="button">拍照</button><button data-i18n="upload" data-photo-action="pick" data-slot="1" type="button">上传</button><button class="remove-photo" data-i18n="remove" data-photo-action="remove" data-slot="1" hidden="" type="button">删除</button></div></article>
 <article class="photo-card" data-slot="2"><div class="photo-preview" id="preview-2"><span class="photo-placeholder-icon">▧</span><b data-i18n="photoOptional">其他角度照片</b><small data-i18n="photoOptionalHelp">可选 · 最多 3 张</small></div><div class="photo-name" data-i18n="notSelected" id="photo-name-2">尚未选择</div><div class="photo-actions"><button data-i18n="camera" data-photo-action="camera" data-slot="2" type="button">拍照</button><button data-i18n="upload" data-photo-action="pick" data-slot="2" type="button">上传</button><button class="remove-photo" data-i18n="remove" data-photo-action="remove" data-slot="2" hidden="" type="button">删除</button></div></article>
 </div>
-<div class="ocr-bar"><div><strong data-i18n="ocrHeading">标签识别（OCR）</strong><span data-i18n="ocrIntro" id="ocr-status">上传第 1 张照片后自动识别，并按标签印刷位置分别读取品名与规格。</span></div><button class="button button-outline small" data-i18n="ocrAgain" id="btn-ocr" type="button">↻ 重新识别</button></div>
+<div class="ocr-bar"><div><strong data-i18n="ocrHeading">标签识别（OCR）</strong><span data-i18n="ocrIntro" id="ocr-status">优先读取 QR Code 的完整批号，再分行识别品名和规格。</span></div><button class="button button-outline small" data-i18n="ocrAgain" id="btn-ocr" type="button">↻ 重新识别</button></div>
 <details class="ocr-details" id="ocr-details"><summary data-i18n="ocrRawSummary">查看识别原文（用于检查不清楚的字段）</summary><pre data-i18n="ocrNoText" id="ocr-raw">暂无识别内容</pre></details>
 <div class="section-title form-heading"><div><span class="step">02</span><div><h2 data-i18n="detailsHeading">标签资料</h2><p data-i18n="detailsDesc">自动填写后仍可手动修正。重量、料号与批号会按原格式保存。</p></div></div><span class="form-hint" data-i18n="required">* 必填</span></div>
 <form autocomplete="off" id="record-form">

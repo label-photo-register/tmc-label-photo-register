@@ -1,0 +1,9 @@
+Label Photo Register V2.3 — QR-first OCR improvement
+
+- QR Code now has priority for Label No., complete Lot No., Part No. and Net Weight (if the QR payload matches the expected format).
+- Description and Spec are read separately from small printed text rows instead of a large combined block.
+- Unclear OCR values are not silently accepted. Check the photo before saving.
+- Existing Chinese/English/Malay interface, saved labels, photo grouping, Excel export, shareable XLSM conversion and safe export cleanup remain.
+- Photo files and real company QR payloads are NOT included in this upload package.
+- Test first on your Android phone using Label 009396 and other labels. QR recognition is browser-dependent; a JavaScript fallback is loaded from jsDelivr when connected.
+- Existing saved records are not erased; open a saved record and click Recognize again before saving corrected details.
