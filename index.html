@@ -5,21 +5,21 @@
 <meta content="width=device-width, initial-scale=1, viewport-fit=cover" name="viewport"/>
 <meta content="#142d49" name="theme-color"/>
 <meta content="标签拍照识别，每个标签绑定 2–3 张照片，导出含照片的 Excel。" data-i18n-content="pageDescription" name="description"/>
-<title>Label Photo Register V2.3</title>
-<link href="manifest.webmanifest?v=2.3.0" rel="manifest"/>
+<title>Label Photo Register V2.4</title>
+<link href="manifest.webmanifest?v=2.4.0" rel="manifest"/>
 <link href="icon-192.png" rel="icon" type="image/png"/>
 <link href="icon-192.png" rel="apple-touch-icon"/>
-<link href="style.css?v=2.3.0" rel="stylesheet"/>
+<link href="style.css?v=2.4.0" rel="stylesheet"/>
 <script defer="" src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script defer="" src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script defer="" src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script defer="" src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script defer="" src="app.js?v=2.3.0"></script>
+<script defer="" src="app.js?v=2.4.0"></script>
 </head>
 <body>
 <div class="app">
 <header class="topbar">
-<div class="brand"><span class="brand-icon"><img alt="Label Photo Register icon" src="icon.svg"/></span><span><b>TMC Label Photo Register</b><small data-i18n="brandSub">智能标签照片登记 · V2.3</small></span></div>
+<div class="brand"><span class="brand-icon"><img alt="Label Photo Register icon" src="icon.svg"/></span><span><b>TMC Label Photo Register</b><small data-i18n="brandSub">智能标签照片登记 · V2.4</small></span></div>
 <div class="language-switch"><label data-i18n="language" for="language-select">语言</label><select aria-label="Language / Bahasa / 语言" id="language-select"><option value="zh">中文</option><option value="en">English</option><option value="ms">Bahasa Melayu</option></select></div><span class="local-pill"><span class="dot"></span><span data-i18n="localOnly">仅储存在本机</span></span>
 </header>
 <section class="hero">
@@ -50,6 +50,10 @@
 <article class="photo-card" data-slot="2"><div class="photo-preview" id="preview-2"><span class="photo-placeholder-icon">▧</span><b data-i18n="photoOptional">其他角度照片</b><small data-i18n="photoOptionalHelp">可选 · 最多 3 张</small></div><div class="photo-name" data-i18n="notSelected" id="photo-name-2">尚未选择</div><div class="photo-actions"><button data-i18n="camera" data-photo-action="camera" data-slot="2" type="button">拍照</button><button data-i18n="upload" data-photo-action="pick" data-slot="2" type="button">上传</button><button class="remove-photo" data-i18n="remove" data-photo-action="remove" data-slot="2" hidden="" type="button">删除</button></div></article>
 </div>
 <div class="ocr-bar"><div><strong data-i18n="ocrHeading">标签识别（OCR）</strong><span data-i18n="ocrIntro" id="ocr-status">优先读取 QR Code 的完整批号，再分行识别品名和规格。</span></div><button class="button button-outline small" data-i18n="ocrAgain" id="btn-ocr" type="button">↻ 重新识别</button></div>
+<div class="precision-launch">
+  <button class="button button-outline" data-i18n="precisionOpen" id="btn-precision" type="button">▣ 框选品名 / 规格，精准识别</button>
+  <p data-i18n="precisionLaunchHelp">如果自动结果不准确，可圈出标签上的实际文字，单独重新识别并确认。图片只在本机处理。</p>
+</div>
 <details class="ocr-details" id="ocr-details"><summary data-i18n="ocrRawSummary">查看识别原文（用于检查不清楚的字段）</summary><pre data-i18n="ocrNoText" id="ocr-raw">暂无识别内容</pre></details>
 <div class="section-title form-heading"><div><span class="step">02</span><div><h2 data-i18n="detailsHeading">标签资料</h2><p data-i18n="detailsDesc">自动填写后仍可手动修正。重量、料号与批号会按原格式保存。</p></div></div><span class="form-hint" data-i18n="required">* 必填</span></div>
 <form autocomplete="off" id="record-form">
@@ -71,4 +75,21 @@
 <div class="progress-overlay" hidden="" id="progress-overlay"><div class="progress-card"><div class="spinner"></div><h3 data-i18n="progressProcessing" id="progress-title">处理中…</h3><p data-i18n="progressWait" id="progress-detail">请勿关闭页面</p><div class="progress-track"><div id="progress-bar"></div></div></div></div>
 <input accept="image/*" capture="environment" hidden="" id="camera-input" type="file"/>
 <input accept="image/*" hidden="" id="picker-input" type="file"/>
+<div class="precision-overlay" id="precision-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="precision-title">
+  <div class="precision-dialog">
+    <div class="precision-top"><h2 data-i18n="precisionTitle" id="precision-title">框选精准识别</h2><button class="precision-close" id="precision-close" type="button" aria-label="Close">×</button></div>
+    <p data-i18n="precisionHelp" class="precision-help">先选品名或规格，在照片中用手指拖动圈住真正的文字（不要包含左侧 Description / Spec 栏名及横线）。多行文字可一起框选。</p>
+    <div class="precision-field-select" role="group" aria-label="Field">
+      <button type="button" data-precision-field="description" class="is-active" data-i18n="precisionDescription">品名 Description</button>
+      <button type="button" data-precision-field="spec" data-i18n="precisionSpec">规格 Spec</button>
+    </div>
+    <div class="precision-image-wrap"><canvas id="precision-canvas" aria-label="Label photo for selecting OCR area"></canvas></div>
+    <p class="precision-tip" id="precision-tip" data-i18n="precisionSelect">在照片上拖动，框选需要识别的文字。</p>
+    <div class="precision-actions"><button class="button button-outline" id="precision-read" type="button" data-i18n="precisionRead" disabled>重新识别框选区域</button><button class="button button-primary" id="precision-use" type="button" data-i18n="precisionApply" disabled>确认并填入字段</button></div>
+    <img id="precision-crop-preview" class="precision-crop-preview" alt="Selected text crop" hidden />
+    <label class="precision-result"><span data-i18n="precisionResult">识别结果（可直接修改文字）</span><textarea id="precision-result" rows="3" placeholder="" disabled></textarea></label>
+    <div class="precision-alt" id="precision-alt" hidden><span data-i18n="precisionAlternative">另一种识别结果（点选可替换）</span><button type="button" id="precision-alt-value"></button></div>
+    <p class="precision-safety" data-i18n="precisionSafety">OCR 仍可能误读数字、斜杠和字母。请对照上方裁切图片修改后再点击确认，不会自动覆盖你已填写的正确资料。</p>
+  </div>
+</div>
 </body></html>
